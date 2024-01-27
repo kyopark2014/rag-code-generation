@@ -174,62 +174,32 @@ def isKorean(text):
         return False
 
 def get_prompt_template(query, conv_type):    
-    if isKorean(query):
-        if conv_type == "normal": # for General Conversation
-            prompt_template = """\n\nHuman: 다음의 <history>는 Human과 Assistant의 친근한 이전 대화입니다. Assistant은 상황에 맞는 구체적인 세부 정보를 충분히 제공합니다. Assistant의 이름은 서연이고, 모르는 질문을 받으면 솔직히 모른다고 말합니다.
+    if conv_type == "normal": # for General Conversation
+        prompt_template = """\n\nHuman: 다음의 <history>는 Human과 Assistant의 친근한 이전 대화입니다. Assistant은 상황에 맞는 구체적인 세부 정보를 충분히 제공합니다. Assistant의 이름은 서연이고, 모르는 질문을 받으면 솔직히 모른다고 말합니다.
 
-            <history>
-            {history}
-            </history>            
+        <history>
+        {history}
+        </history>            
 
-            <question>            
-            {input}
-            </question>
+        <question>            
+        {input}
+        </question>
             
-            Assistant:"""
-        elif conv_type=='qa':  
-            prompt_template = """\n\nHuman: 다음의 <context> tag안의 참고자료를 이용하여 상황에 맞는 구체적인 세부 정보를 충분히 제공합니다. Assistant의 이름은 서연이고, 모르는 질문을 받으면 솔직히 모른다고 말합니다.
+        Assistant:"""
+    elif conv_type=='qa':  
+        #prompt_template = """\n\nHuman: 다음의 <context> tag안의 참고자료를 이용하여 상황에 맞는 구체적인 세부 정보를 충분히 제공합니다. Assistant의 이름은 서연이고, 모르는 질문을 받으면 솔직히 모른다고 말합니다.
+        prompt_template = """\n\nHuman: 다음의 <context> tag안에는 답변과 관련된 python code 예제 입니다. Assistant의 이름은 서연이고, <context> tag안의 코드를 참조하여 질문과 관련된 코드 함수를 생성합니다.
             
-            <context>
-            {context}
-            </context>
+        <context>
+        {context}
+        </context>
 
-            <question>            
-            {question}
-            </question>
+        <question>            
+        {question}
+        </question>
 
-            Assistant:"""
-                
-
-    else:  # English
-        if conv_type == "normal": # for General Conversation
-            prompt_template = """\n\nHuman: Using the following conversation, answer friendly for the newest question. If you don't know the answer, just say that you don't know, don't try to make up an answer. You will be acting as a thoughtful advisor.
-
-            <history>
-            {history}
-            </history>
-            
-            <question>            
-            {input}
-            </question>
-
-            Assistant:"""
-
-        elif conv_type=='qa':  # for RAG
-            prompt_template = """\n\nHuman: Here is pieces of context, contained in <context> tags. Provide a concise answer to the question at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer. 
-            
-            <context>
-            {context}
-            </context>
-
-            Go directly into the main points without the preamble. Do not include any additional information like newline characters "\n" or character counts in the result.
-                        
-            <question>
-            {question}
-            </question>
-
-            Assistant:"""
-    
+        Assistant:"""
+                    
     return PromptTemplate.from_template(prompt_template)
 
 def store_document_for_faiss(docs, vectorstore_faiss):
@@ -624,6 +594,10 @@ def retrieve_from_vectorstore(query, top_k, rag_type):
             excerpt = document[0].page_content
             confidence = str(document[1])
             assessed_score = str(document[1])
+            
+            code = ""
+            if "code" in document[0].metadata:
+                code = document[0].metadata['code']
 
             if page:
                 print('page: ', page)
@@ -637,7 +611,8 @@ def retrieve_from_vectorstore(query, top_k, rag_type):
                         "translated_excerpt": "",
                         "document_attributes": {
                             "_excerpt_page_number": page
-                        }
+                        },
+                        "code": code
                     },
                     "assessed_score": assessed_score,
                 }
@@ -649,7 +624,8 @@ def retrieve_from_vectorstore(query, top_k, rag_type):
                         "source": uri,
                         "title": name,
                         "excerpt": excerpt,
-                        "translated_excerpt": ""
+                        "translated_excerpt": "",
+                        "code": code
                     },
                     "assessed_score": assessed_score,
                 }
@@ -712,6 +688,10 @@ def retrieve_from_vectorstore(query, top_k, rag_type):
 
                 confidence = str(document['_score'])
                 assessed_score = ""
+                
+                code = ""
+                if "code" in document[0].metadata:
+                    code = document[0].metadata['code']
 
                 if page:
                     print('page: ', page)
@@ -728,7 +708,8 @@ def retrieve_from_vectorstore(query, top_k, rag_type):
                             "translated_excerpt": "",
                             "document_attributes": {
                                 "_excerpt_page_number": page
-                            }
+                            },
+                            "code": code
                         },
                         #"query_id": query_id,
                         #"feedback_token": feedback_token
@@ -745,7 +726,8 @@ def retrieve_from_vectorstore(query, top_k, rag_type):
                             "source": uri,
                             "title": name,
                             "excerpt": excerpt,
-                            "translated_excerpt": ""
+                            "translated_excerpt": "",
+                            "code": code
                         },
                         #"query_id": query_id,
                         #"feedback_token": feedback_token
@@ -793,7 +775,7 @@ def translate_relevant_documents_using_parallel_processing(docs):
     #print('relevant_docs: ', relevant_docs)
     return relevant_docs
 
-def get_answer_using_RAG(llm, text, conv_type, connectionId, requestId, bedrock_embeddings):
+def get_code_using_RAG(llm, text, conv_type, connectionId, requestId, bedrock_embeddings):
     global time_for_rag, time_for_inference, time_for_priority_search, number_of_relevant_docs  # for debug
     time_for_rag = time_for_inference = time_for_priority_search = number_of_relevant_docs = 0
     
@@ -824,19 +806,16 @@ def get_answer_using_RAG(llm, text, conv_type, connectionId, requestId, bedrock_
     print('processing time for priority search: ', time_for_priority_search)
     number_of_relevant_docs = len(selected_relevant_docs)
 
-    relevant_context = ""
+    relevant_code = ""
     for document in selected_relevant_docs:
-        if document['metadata']['translated_excerpt']:
-            content = document['metadata']['translated_excerpt']
-        else:
-            content = document['metadata']['excerpt']
-        
-        relevant_context = relevant_context + content + "\n\n"
-    print('relevant_context: ', relevant_context)
+        if document['metadata']['code']:
+            code = document['metadata']['code']
+            relevant_code = relevant_code + code + "\n\n"            
+    print('relevant_code: ', relevant_code)
 
     try: 
         isTyping(connectionId, requestId)
-        stream = llm(PROMPT.format(context=relevant_context, question=text))
+        stream = llm(PROMPT.format(context=relevant_code, question=text))
         msg = readStreamMsg(connectionId, requestId, stream)            
     except Exception:
         err_msg = traceback.format_exc()
@@ -1034,7 +1013,7 @@ def getResponse(connectionId, jsonBody):
                 msg  = "The chat memory was intialized in this session."
             else:          
                 if conv_type == 'qa':   # RAG
-                    msg, reference = get_answer_using_RAG(llm, text, conv_type, connectionId, requestId, bedrock_embeddings)     
+                    msg, reference = get_code_using_RAG(llm, text, conv_type, connectionId, requestId, bedrock_embeddings)     
                 
                 elif conv_type == 'normal':      # normal
                     msg = get_answer_using_ConversationChain(text, conversation, conv_type, connectionId, requestId)
