@@ -268,101 +268,6 @@ def store_document_for_opensearch(bedrock_embeddings, docs, userId, documentId):
 
     print('uploaded into opensearch')
     
-# load documents from s3 for pdf and txt
-def load_document(file_type, s3_file_name):
-    s3r = boto3.resource("s3")
-    doc = s3r.Object(s3_bucket, s3_prefix+'/'+s3_file_name)
-    
-    if file_type == 'pdf':
-        Byte_contents = doc.get()['Body'].read()
-        reader = PyPDF2.PdfReader(BytesIO(Byte_contents))
-        
-        texts = []
-        for page in reader.pages:
-            texts.append(page.extract_text())
-        contents = '\n'.join(texts)
-        
-    elif file_type == 'pptx':
-        Byte_contents = doc.get()['Body'].read()
-            
-        from pptx import Presentation
-        prs = Presentation(BytesIO(Byte_contents))
-
-        texts = []
-        for i, slide in enumerate(prs.slides):
-            text = ""
-            for shape in slide.shapes:
-                if shape.has_text_frame:
-                    text = text + shape.text
-            texts.append(text)
-        contents = '\n'.join(texts)
-        
-    elif file_type == 'txt':        
-        contents = doc.get()['Body'].read().decode('utf-8')
-
-    elif file_type == 'docx':
-        Byte_contents = doc.get()['Body'].read()
-            
-        import docx
-        doc_contents =docx.Document(BytesIO(Byte_contents))
-
-        texts = []
-        for i, para in enumerate(doc_contents.paragraphs):
-            if(para.text):
-                texts.append(para.text)
-                # print(f"{i}: {para.text}")        
-        contents = '\n'.join(texts)
-            
-    # print('contents: ', contents)
-    new_contents = str(contents).replace("\n"," ") 
-    print('length: ', len(new_contents))
-
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,
-        chunk_overlap=100,
-        separators=["\n\n", "\n", ".", " ", ""],
-        length_function = len,
-    ) 
-
-    texts = text_splitter.split_text(new_contents) 
-                
-    return texts
-
-# load csv documents from s3
-def load_csv_document(path, doc_prefix, s3_file_name):
-    s3r = boto3.resource("s3")
-    doc = s3r.Object(s3_bucket, s3_prefix+'/'+s3_file_name)
-
-    lines = doc.get()['Body'].read().decode('utf-8').split('\n')   # read csv per line
-    print('lins: ', len(lines))
-        
-    columns = lines[0].split(',')  # get columns
-    #columns = ["Category", "Information"]  
-    #columns_to_metadata = ["type","Source"]
-    print('columns: ', columns)
-    
-    docs = []
-    n = 0
-    for row in csv.DictReader(lines, delimiter=',',quotechar='"'):
-        # print('row: ', row)
-        #to_metadata = {col: row[col] for col in columns_to_metadata if col in row}
-        values = {k: row[k] for k in columns if k in row}
-        content = "\n".join(f"{k.strip()}: {v.strip()}" for k, v in values.items())
-        doc = Document(
-            page_content=content,
-            metadata={
-                'name': s3_file_name,
-                'page': n+1,
-                'uri': path+doc_prefix+parse.quote(s3_file_name)
-            }
-            #metadata=to_metadata
-        )
-        docs.append(doc)
-        n = n+1
-    print('docs[0]: ', docs[0])
-
-    return docs
-
 # load a code file from s3
 def load_code(file_type, s3_file_name):
     s3r = boto3.resource("s3")
@@ -376,9 +281,10 @@ def load_code(file_type, s3_file_name):
     #print('length: ', len(new_contents))
 
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,
-        chunk_overlap=100,
-        separators=["def ", "\n\n", "\n", ".", " ", ""],
+        chunk_size=3000,
+        chunk_overlap=0,
+        #separators=["def ", "\n\n", "\n", ".", " ", ""],
+        separators=["def "],
         length_function = len,
     ) 
 
@@ -936,41 +842,7 @@ def getResponse(connectionId, jsonBody):
             file_type = object[object.rfind('.')+1:len(object)]            
             print('file_type: ', file_type)
 
-            if file_type == 'csv':
-                docs = load_csv_document(path, doc_prefix, object)
-                contexts = []
-                for doc in docs:
-                    contexts.append(doc.page_content)
-                print('contexts: ', contexts)
-
-                msg = get_summary(llm, contexts)
-
-            elif file_type == 'pdf' or file_type == 'txt' or file_type == 'pptx' or file_type == 'docx':
-                texts = load_document(file_type, object)
-
-                docs = []
-                for i in range(len(texts)):
-                    docs.append(
-                        Document(
-                            page_content=texts[i],
-                            metadata={
-                                'name': object,
-                                # 'page':i+1,
-                                'uri': path+doc_prefix+parse.quote(object)
-                            }
-                        )
-                    )
-                print('docs[0]: ', docs[0])    
-                print('docs size: ', len(docs))
-
-                contexts = []
-                for doc in docs:
-                    contexts.append(doc.page_content)
-                #print('contexts: ', contexts)
-
-                msg = get_summary(llm, contexts)
-            
-            elif file_type == 'py':
+            if file_type == 'py':
                 texts = load_code(file_type, object)
                 
                 docs = []
@@ -996,7 +868,8 @@ def getResponse(connectionId, jsonBody):
                 msg = summarize_code(llm, contexts)
                 
             else:
-                msg = "uploaded file: "+object
+                # msg = "uploaded file: "+object
+                msg = f"{file_type} is not supported"
                                 
             if conv_type == 'qa':
                 start_time = time.time()
