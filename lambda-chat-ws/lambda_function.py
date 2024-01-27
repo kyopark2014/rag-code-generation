@@ -690,8 +690,8 @@ def retrieve_from_vectorstore(query, top_k, rag_type):
                 assessed_score = ""
                 
                 code = ""
-                if "code" in document[0].metadata:
-                    code = document[0].metadata['code']
+                if "code" in document['_source']['metadata']:
+                    code = document['_source']['metadata']['code']
 
                 if page:
                     print('page: ', page)
