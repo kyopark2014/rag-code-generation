@@ -542,8 +542,10 @@ def get_reference(docs, path, doc_prefix):
     for i, doc in enumerate(docs):
         excerpt = doc['metadata']['excerpt']
         #code = f"<div>{doc['metadata']['code']}</div>"
+        code = doc['metadata']['excerpt'].replace('\"','"')
         
         code = f"<div class=\"alert\">{doc['metadata']['code']}</div>"
+        code = code.replace('\n','<br>')
         #excerpt = doc['metadata']['excerpt']
         #code = doc['metadata']['code']
         #excerpt = doc['metadata']['excerpt'].replace('"','\"')
