@@ -62,7 +62,7 @@ def lambda_handler(event, context):
         documentIds.append(documentId)
 
         # delete document index of opensearch
-        index_name = "rag-index-"+documentId
+        index_name = "idx-"+documentId
         # print('index_name: ', index_name)
         delete_index_if_exist(index_name)
     
