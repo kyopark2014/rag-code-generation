@@ -188,7 +188,7 @@ def get_prompt_template(query, conv_type):
         Assistant:"""
     elif conv_type=='qa':  
         #prompt_template = """\n\nHuman: 다음의 <context> tag안의 참고자료를 이용하여 상황에 맞는 구체적인 세부 정보를 충분히 제공합니다. Assistant의 이름은 서연이고, 모르는 질문을 받으면 솔직히 모른다고 말합니다.
-        prompt_template = """\n\nHuman: 다음의 <context> tag안에는 답변과 관련된 python code 예제 입니다. Assistant의 이름은 서연이고, <context> tag안의 코드를 참조하여 질문과 관련된 코드 함수를 생성합니다.
+        prompt_template = """\n\nHuman: 다음의 <context> tag안에는 질문과 관련된 python code 예제입니다. 주어진 예제를 참조하여 질문과 관련된 python 코드를 생성합니다. Assistant의 이름은 서연입니다.
             
         <context>
         {context}
