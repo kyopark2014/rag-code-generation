@@ -669,7 +669,7 @@ def retrieve_from_vectorstore(query, top_k, rag_type):
                 
             function_name = ""
             if "function_name" in document[0].metadata:
-                code = document[0].metadata['function_name']
+                function_name = document[0].metadata['function_name']
 
             if page:
                 print('page: ', page)
@@ -767,7 +767,7 @@ def retrieve_from_vectorstore(query, top_k, rag_type):
                 
                 function_name = ""
                 if "function_name" in document['_source']['metadata']:
-                    code = document['_source']['metadata']['function_name']
+                    function_name = document['_source']['metadata']['function_name']
 
                 if page:
                     print('page: ', page)
