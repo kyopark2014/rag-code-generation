@@ -654,10 +654,105 @@ def retrieve_from_vectorstore(query, top_k, rag_type):
                     "assessed_score": assessed_score,
                 }
             relevant_docs.append(doc_info)
+    
+        # rexical search (keyword)
+        min_match = 0
+        if enableNoriPlugin == 'true':
+            query = {
+                "query": {
+                    "bool": {
+                        "must": [
+                            {
+                                "match": {
+                                    "text": {
+                                        "query": query,
+                                        "minimum_should_match": f'{min_match}%',
+                                        "operator":  "or",
+                                        # "fuzziness": "AUTO",
+                                        # "fuzzy_transpositions": True,
+                                        # "zero_terms_query": "none",
+                                        # "lenient": False,
+                                        # "prefix_length": 0,
+                                        # "max_expansions": 50,
+                                        # "boost": 1
+                                    }
+                                }
+                            },
+                        ],
+                        "filter": [
+                        ]
+                    }
+                }
+            }
 
+            response = os_client.search(
+                body=query,
+                index="idx-*", # all
+            )
+            # print('lexical query result: ', json.dumps(response))
+            
+            for i, document in enumerate(response['hits']['hits']):
+                if i>top_k: 
+                    break
+                
+                excerpt = document['_source']['text']
+                print(f'## Document(opensearch-keyward) {i+1}: {excerpt}')
+
+                name = document['_source']['metadata']['name']
+                print('name: ', name)
+
+                page = ""
+                if "page" in document['_source']['metadata']:
+                    page = document['_source']['metadata']['page']
+                
+                uri = ""
+                if "uri" in document['_source']['metadata']:
+                    uri = document['_source']['metadata']['uri']
+                print('uri: ', uri)
+
+                confidence = str(document['_score'])
+                assessed_score = ""
+
+                if page:
+                    print('page: ', page)
+                    doc_info = {
+                        "rag_type": 'opensearch-keyward',
+                        #"api_type": api_type,
+                        "confidence": confidence,
+                        "metadata": {
+                            #"type": query_result_type,
+                            #"document_id": document_id,
+                            "source": uri,
+                            "title": name,
+                            "excerpt": excerpt,
+                            "translated_excerpt": "",
+                            "document_attributes": {
+                                "_excerpt_page_number": page
+                            }
+                        },
+                        #"query_id": query_id,
+                        #"feedback_token": feedback_token
+                        "assessed_score": assessed_score,
+                    }
+                else: 
+                    doc_info = {
+                        "rag_type": 'opensearch-keyward',
+                        #"api_type": api_type,
+                        "confidence": confidence,
+                        "metadata": {
+                            #"type": query_result_type,
+                            #"document_id": document_id,
+                            "source": uri,
+                            "title": name,
+                            "excerpt": excerpt,
+                            "translated_excerpt": ""
+                        },
+                        #"query_id": query_id,
+                        #"feedback_token": feedback_token
+                        "assessed_score": assessed_score,
+                    }
+                relevant_docs.append(doc_info)
     return relevant_docs
-
-
 
 def translate_process_from_relevent_doc(conn, llm, doc):
     translated_excerpt = traslation_to_korean(llm=llm, msg=doc['metadata']['excerpt'])
@@ -883,7 +978,7 @@ def getResponse(connectionId, jsonBody):
     # rag sources
     if conv_type == 'qa':
         vectorstore_opensearch = OpenSearchVectorSearch(
-            index_name = "rag-index-*", # all
+            index_name = "idx-*", # all
             is_aoss = False,
             ef_search = 1024, # 512(default)
             m=48,
