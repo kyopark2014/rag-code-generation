@@ -384,14 +384,14 @@ def summarize_code(llm, msg):
     Assistant:"""
  
     try:
-        translated_msg = llm(PROMPT.format(input=msg))
-        #print('translated_msg: ', translated_msg)
+        summary = llm(PROMPT.format(input=msg))
+        #print('summary: ', summary)
     except Exception:
         err_msg = traceback.format_exc()
         print('error message: ', err_msg)        
-        raise Exception ("Not able to translate the message")
+        raise Exception ("Not able to summary the message")
    
-    msg = translated_msg[translated_msg.find('<result>')+9:len(translated_msg)-10]
+    msg = summary[summary.find('<result>')+9:len(summary)-10]
    
     # return msg.replace("\n"," ")
     return msg
@@ -497,11 +497,7 @@ def priority_search(query, relevant_docs, bedrock_embeddings):
     excerpts = []
     for i, doc in enumerate(relevant_docs):
         # print('doc: ', doc)
-        if doc['metadata']['translated_excerpt']:
-            content = doc['metadata']['translated_excerpt']
-        else:
-            content = doc['metadata']['excerpt']
-        
+        content = doc['metadata']['excerpt']        
         excerpts.append(
             Document(
                 page_content=content,
@@ -543,10 +539,7 @@ def priority_search(query, relevant_docs, bedrock_embeddings):
 def get_reference(docs, path, doc_prefix):
     reference = "\n\nFrom\n"
     for i, doc in enumerate(docs):
-        if doc['metadata']['translated_excerpt']:
-            excerpt = str(doc['metadata']['excerpt']+'  [번역]'+doc['metadata']['translated_excerpt']).replace('"'," ") 
-        else:
-            excerpt = str(doc['metadata']['excerpt']).replace('"'," ")
+        excerpt = str(doc['metadata']['excerpt']).replace('"'," ")
 
         if doc['rag_type'][:10] == 'opensearch':
             print(f'## Document(get_reference) {i+1}: {doc}')
@@ -608,7 +601,6 @@ def retrieve_from_vectorstore(query, top_k, rag_type):
                         "source": uri,
                         "title": name,
                         "excerpt": excerpt,
-                        "translated_excerpt": "",
                         "document_attributes": {
                             "_excerpt_page_number": page
                         },
@@ -624,7 +616,6 @@ def retrieve_from_vectorstore(query, top_k, rag_type):
                         "source": uri,
                         "title": name,
                         "excerpt": excerpt,
-                        "translated_excerpt": "",
                         "code": code
                     },
                     "assessed_score": assessed_score,
@@ -705,7 +696,6 @@ def retrieve_from_vectorstore(query, top_k, rag_type):
                             "source": uri,
                             "title": name,
                             "excerpt": excerpt,
-                            "translated_excerpt": "",
                             "document_attributes": {
                                 "_excerpt_page_number": page
                             },
@@ -726,7 +716,6 @@ def retrieve_from_vectorstore(query, top_k, rag_type):
                             "source": uri,
                             "title": name,
                             "excerpt": excerpt,
-                            "translated_excerpt": "",
                             "code": code
                         },
                         #"query_id": query_id,
@@ -734,45 +723,6 @@ def retrieve_from_vectorstore(query, top_k, rag_type):
                         "assessed_score": assessed_score,
                     }
                 relevant_docs.append(doc_info)
-    return relevant_docs
-
-def translate_process_from_relevent_doc(conn, llm, doc):
-    translated_excerpt = traslation_to_korean(llm=llm, msg=doc['metadata']['excerpt'])
-
-    # doc['metadata']['excerpt'] = translated_excerpt
-    doc['metadata']['translated_excerpt'] = translated_excerpt
-
-    conn.send(doc)
-    conn.close()
-
-def translate_relevant_documents_using_parallel_processing(docs):
-    selected_LLM = 0
-    relevant_docs = []    
-    processes = []
-    parent_connections = []
-    for doc in docs:
-        parent_conn, child_conn = Pipe()
-        parent_connections.append(parent_conn)
-            
-        llm = get_llm(profile_of_LLMs, selected_LLM)
-        process = Process(target=translate_process_from_relevent_doc, args=(child_conn, llm, doc))            
-        processes.append(process)
-
-        selected_LLM = selected_LLM + 1
-        if selected_LLM == len(profile_of_LLMs):
-            selected_LLM = 0
-
-    for process in processes:
-        process.start()
-            
-    for parent_conn in parent_connections:
-        doc = parent_conn.recv()
-        relevant_docs.append(doc)    
-
-    for process in processes:
-        process.join()
-    
-    #print('relevant_docs: ', relevant_docs)
     return relevant_docs
 
 def get_code_using_RAG(llm, text, conv_type, connectionId, requestId, bedrock_embeddings):
@@ -847,46 +797,6 @@ def get_answer_using_ConversationChain(text, conversation, conv_type, connection
         raise Exception ("Not able to request to LLM")
 
     return msg
-
-def traslation_to_korean(llm, msg):
-    PROMPT = """\n\nHuman: Here is an article, contained in <article> tags. Translate the article to Korean. Put it in <result> tags.
-            
-    <article>
-    {input}
-    </article>
-                        
-    Assistant:"""
-
-    try: 
-        translated_msg = llm(PROMPT.format(input=msg))
-        #print('translated_msg: ', translated_msg)
-    except Exception:
-        err_msg = traceback.format_exc()
-        print('error message: ', err_msg)        
-        raise Exception ("Not able to translate the message")
-    
-    msg = translated_msg[translated_msg.find('<result>')+9:len(translated_msg)-10]
-    
-    return msg.replace("\n"," ")
-
-def traslation_to_english(llm, msg):
-    PROMPT = """\n\nHuman: 다음의 <article>를 English로 번역하세요. 머리말은 건너뛰고 본론으로 바로 들어가주세요. 또한 결과는 <result> tag를 붙여주세요.
-
-    <article>
-    {input}
-    </article>
-                        
-    Assistant:"""
-
-    try: 
-        translated_msg = llm(PROMPT.format(input=msg))
-        #print('translated_msg: ', translated_msg)
-    except Exception:
-        err_msg = traceback.format_exc()
-        print('error message: ', err_msg)        
-        raise Exception ("Not able to translate the message")
-    
-    return translated_msg[translated_msg.find('<result>')+9:len(translated_msg)-10]
 
 def getResponse(connectionId, jsonBody):
     userId  = jsonBody['user_id']
@@ -1084,13 +994,6 @@ def getResponse(connectionId, jsonBody):
 
         elapsed_time = time.time() - start
         print("total run time(sec): ", elapsed_time)
-
-        if isKorean(msg)==False and conv_type=='qa':
-            translated_msg = traslation_to_korean(llm, msg)
-            print('translated_msg: ', translated_msg)
-
-            msg = msg+'\n[한국어]\n'+translated_msg
-            sendResultMessage(connectionId, requestId, msg+reference)
 
         item = {    # save dialog
             'user_id': {'S':userId},
