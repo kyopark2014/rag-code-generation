@@ -611,6 +611,10 @@ def retrieve_from_vectorstore(query, top_k, rag_type):
             code = ""
             if "code" in document[0].metadata:
                 code = document[0].metadata['code']
+                
+            function_name = ""
+            if "function_name" in document[0].metadata:
+                code = document[0].metadata['function_name']
 
             if page:
                 print('page: ', page)
@@ -624,7 +628,8 @@ def retrieve_from_vectorstore(query, top_k, rag_type):
                         "document_attributes": {
                             "_excerpt_page_number": page
                         },
-                        "code": code
+                        "code": code,
+                        "function_name": function_name
                     },
                     "assessed_score": assessed_score,
                 }
@@ -636,7 +641,8 @@ def retrieve_from_vectorstore(query, top_k, rag_type):
                         "source": uri,
                         "title": name,
                         "excerpt": excerpt,
-                        "code": code
+                        "code": code,
+                        "function_name": function_name
                     },
                     "assessed_score": assessed_score,
                 }
@@ -703,6 +709,10 @@ def retrieve_from_vectorstore(query, top_k, rag_type):
                 code = ""
                 if "code" in document['_source']['metadata']:
                     code = document['_source']['metadata']['code']
+                
+                function_name = ""
+                if "function_name" in document['_source']['metadata']:
+                    code = document['_source']['metadata']['function_name']
 
                 if page:
                     print('page: ', page)
@@ -719,7 +729,8 @@ def retrieve_from_vectorstore(query, top_k, rag_type):
                             "document_attributes": {
                                 "_excerpt_page_number": page
                             },
-                            "code": code
+                            "code": code,
+                            "function_name": function_name
                         },
                         #"query_id": query_id,
                         #"feedback_token": feedback_token
@@ -736,7 +747,8 @@ def retrieve_from_vectorstore(query, top_k, rag_type):
                             "source": uri,
                             "title": name,
                             "excerpt": excerpt,
-                            "code": code
+                            "code": code,
+                            "function_name": function_name
                         },
                         #"query_id": query_id,
                         #"feedback_token": feedback_token
@@ -962,26 +974,35 @@ def getResponse(connectionId, jsonBody):
                 
                 docs = []
                 msg = ""
-                for i in range(len(texts)):
-                    summary = summarize_code(llm, texts[i])
-                    
-                    docs.append(
-                        Document(
-                            page_content=summary,
-                            metadata={
-                                'name': object,
-                                # 'page':i+1,
-                                'uri': path+doc_prefix+parse.quote(object),
-                                'code': texts[i]
-                            }
-                        )
-                    )                
+                # for i in range(len(texts)):
+                for text in texts:
+                    start = text.find('\ndef ')
+                    end = text.find(':')
+                    if start:                        
+                        summary = summarize_code(llm, text)
+                        function_name = text[start+2:end]
+                        print('function_name: ', function_name)
+                        
+                        docs.append(
+                            Document(
+                                page_content=summary,
+                                metadata={
+                                    'name': object,
+                                    # 'page':i+1,
+                                    'uri': path+doc_prefix+parse.quote(object),
+                                    'code': text,
+                                    'function_name': function_name
+                                }
+                            )
+                        )      
+                        msg = msg + f'{function_name}:\n{summary}\n\n'
+                                 
                 print('docs size: ', len(docs))
                 print('docs[0]: ', docs[0])    
                 print('docs[1]: ', docs[1])    
                 
                 # summary the code
-                msg = summarize_code(llm, texts)
+                #msg = summarize_code(llm, texts)
                                 
             else:
                 # msg = "uploaded file: "+object
