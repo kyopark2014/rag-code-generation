@@ -564,7 +564,7 @@ def priority_search(query, relevant_docs, bedrock_embeddings):
 
         relevant_docs[order]['assessed_score'] = int(assessed_score)
 
-        if assessed_score < 200:
+        if assessed_score < 400:
             docs.append(relevant_docs[order])    
     # print('selected docs: ', docs)
 
