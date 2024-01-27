@@ -541,6 +541,9 @@ def get_reference(docs, path, doc_prefix):
     for i, doc in enumerate(docs):
         excerpt = str(doc['metadata']['excerpt']).replace('"'," ")
         code = str(doc['metadata']['code']).replace('"'," ")
+        
+        excerpt = str(excerpt).replace('<br/>',"\n")        
+        code = str(code).replace('<br/>',"\n") 
 
         if doc['rag_type'][:10] == 'opensearch':
             print(f'## Document(get_reference) {i+1}: {doc}')
@@ -555,9 +558,9 @@ def get_reference(docs, path, doc_prefix):
             #print('opensearch page: ', page)
 
             if page:                
-                reference = reference + f"{i+1}. {page}page in <a href={uri} target=_blank>{name}</a>, {doc['rag_type']} ({doc['assessed_score']}), <a href=\"#\" onClick=\"alert(`{excerpt}`)\">관련설명</a> a href=\"#\" onClick=\"alert(`{code}`)\">관련코드</a>\n"
+                reference = reference + f"{i+1}. {page}page in <a href={uri} target=_blank>{name}</a>, {doc['rag_type']} ({doc['assessed_score']}), <a href=\"#\" onClick=\"alert(`{excerpt}`)\">코드설명</a>, <a href=\"#\" onClick=\"alert(`{code}`)\">관련코드</a>\n"
             else:
-                reference = reference + f"{i+1}. <a href={uri} target=_blank>{name}</a>, {doc['rag_type']} ({doc['assessed_score']}), <a href=\"#\" onClick=\"alert(`{excerpt}`)\">관련설명</a> <a href=\"#\" onClick=\"alert(`{code}`)\">관련코드</a>\n"
+                reference = reference + f"{i+1}. <a href={uri} target=_blank>{name}</a>, {doc['rag_type']} ({doc['assessed_score']}), <a href=\"#\" onClick=\"alert(`{excerpt}`)\">코드설명</a>, <a href=\"#\" onClick=\"alert(`{code}`)\">관련코드</a>\n"
                             
     return reference
 
