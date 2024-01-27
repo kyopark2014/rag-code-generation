@@ -219,7 +219,7 @@ def delete_index_if_exist(index_name):
 
 def get_index_name(documentId):
     index_name = "idx-"+documentId
-    # print('index_name: ', index_name)
+    print('index_name: ', index_name)
                         
     print('index_name: ', index_name)
     print('length of index_name: ', len(index_name))
