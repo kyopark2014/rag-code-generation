@@ -580,7 +580,7 @@ attachFile.addEventListener('click', function(){
                                 "request_id": requestId,
                                 "request_time": requestTime,
                                 "type": "document",
-                                "body": filename,
+                                "body": requestId+'/'+filename,
                                 "conv_type": conv_type
                             })
                         }
