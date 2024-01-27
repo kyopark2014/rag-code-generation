@@ -374,7 +374,7 @@ def load_code(file_type, s3_file_name):
                 
     return texts
 
-def summarize_code(llm, msg):
+def summary_of_code(llm, code):
     PROMPT = """\n\nHuman: 다음의 <article>의 python code입니다. 각 함수의 기능과 역할을 자세하게 500자 이내로 설명하세요. 결과는 <result> tag를 붙여주세요.
            
     <article>
@@ -384,18 +384,81 @@ def summarize_code(llm, msg):
     Assistant:"""
  
     try:
-        summary = llm(PROMPT.format(input=msg))
+        summary = llm(PROMPT.format(input=code))
         #print('summary: ', summary)
     except Exception:
         err_msg = traceback.format_exc()
         print('error message: ', err_msg)        
         raise Exception ("Not able to summary the message")
    
-    msg = summary[summary.find('<result>')+9:len(summary)-10]
+    summary = summary[summary.find('<result>')+9:len(summary)-10] # remove <result> tag
+    
+    summary = summary.replace('\n\n', '\n') 
+    if summary[0] == '\n':
+        summary = summary[1:len(summary)]
    
-    # return msg.replace("\n"," ")
-    return msg
+    return summary
 
+def summarize_process_for_relevent_code(conn, llm, code, object, bedrock_region):
+    try: 
+        start = code.find('\ndef ')
+        end = code.find(':')                    
+        # print(f'start: {start}, end: {end}')
+                        
+        if start != -1:      
+            function_name = code[start+1:end]
+            # print('function_name: ', function_name)
+                            
+            summary = summary_of_code(llm=llm, msg=code)
+            print(f"summary ({bedrock_region}): {summary}")
+
+            doc = Document(
+                page_content=summary,
+                metadata={
+                    'name': object,
+                    'uri': path+doc_prefix+parse.quote(object),
+                    'code': code,
+                    'function_name': function_name
+                }
+            )            
+            conn.send(doc)    
+    except Exception:
+        err_msg = traceback.format_exc()
+        print('error message: ', err_msg)       
+        raise Exception (f"Not able to translate: {doc}")   
+        
+    conn.close()
+
+def summarize_relevant_codes_using_parallel_processing(codes, object):
+    selected_LLM = 0
+    relevant_codes = []    
+    processes = []
+    parent_connections = []
+    for code in codes:
+        parent_conn, child_conn = Pipe()
+        parent_connections.append(parent_conn)
+            
+        llm = get_llm(profile_of_LLMs, selected_LLM)
+        bedrock_region = profile_of_LLMs[selected_LLM]['bedrock_region']
+
+        process = Process(target=summarize_process_for_relevent_code, args=(child_conn, llm, code, object, bedrock_region))
+        processes.append(process)
+
+        selected_LLM = selected_LLM + 1
+        if selected_LLM == len(profile_of_LLMs):
+            selected_LLM = 0
+
+    for process in processes:
+        process.start()
+            
+    for parent_conn in parent_connections:
+        doc = parent_conn.recv()
+        relevant_codes.append(doc)    
+
+    for process in processes:
+        process.join()
+    
+    return relevant_codes
 
 def get_summary(llm, texts):    
     # check korean
@@ -962,43 +1025,50 @@ def getResponse(connectionId, jsonBody):
             print('file_type: ', file_type)
 
             if file_type == 'py':
-                texts = load_code(file_type, object)
+                codes = load_code(file_type, object)  # number of functions in the code
                 
                 docs = []
                 msg = ""
-                # for i in range(len(texts)):
-                for text in texts:
-                    start = text.find('\ndef ')
-                    end = text.find(':')                    
-                    # print(f'start: {start}, end: {end}')
+                
+                useParallelSummay = False
+                if useParallelSummay:
+                    docs = summarize_relevant_codes_using_parallel_processing(codes, object)
                     
-                    if start != -1:      
-                        function_name = text[start+1:end]
-                        # print('function_name: ', function_name)
-                                          
-                        summary = summarize_code(llm, text)
-                        summary = summary.replace('\n\n', '\n') 
-                        if summary[0] == '\n':
-                            summary = summary[1:len(summary)]
-                            
-                        # print('summary[:len(function_name)]: ', summary[:len(function_name)])
-                        if summary[:len(function_name)]==function_name:
-                            summary = summary[len(function_name)+2:len(summary)]
-                            # print('modified summary: ', summary)
+                else:
+                    for code in codes:
+                        start = code.find('\ndef ')
+                        end = code.find(':')                    
+                        # print(f'start: {start}, end: {end}')
                         
-                        docs.append(
-                            Document(
-                                page_content=summary,
-                                metadata={
-                                    'name': object,
-                                    # 'page':i+1,
-                                    'uri': path+doc_prefix+parse.quote(object),
-                                    'code': text,
-                                    'function_name': function_name
-                                }
-                            )
-                        )      
-                        msg = msg + f'{function_name}:\n{summary}\n\n'
+                        if start != -1:      
+                            function_name = code[start+1:end]
+                            # print('function_name: ', function_name)
+                                            
+                            summary = summary_of_code(llm, code)                        
+                                
+                            # print('summary[:len(function_name)]: ', summary[:len(function_name)])
+                            if summary[:len(function_name)]==function_name:
+                                summary = summary[len(function_name)+2:len(summary)]
+                                # print('modified summary: ', summary)
+                                                                            
+                            docs.append(
+                                Document(
+                                    page_content=summary,
+                                    metadata={
+                                        'name': object,
+                                        # 'page':i+1,
+                                        'uri': path+doc_prefix+parse.quote(object),
+                                        'code': code,
+                                        'function_name': function_name
+                                    }
+                                )
+                            )      
+                
+                msg = ""
+                for doc in docs:   
+                    function_name = doc.metadata['function_name']
+                    summary = doc.page_content
+                    msg = msg + f'{function_name}:\n{summary}\n\n'
                                  
                 print('docs size: ', len(docs))
                 if len(docs)>=1:
@@ -1034,7 +1104,7 @@ def getResponse(connectionId, jsonBody):
                          
         if reference: # Summarize the generated code 
             generated_code = msg[msg.find('<result>')+9:len(msg)-10]
-            generated_code_summary = summarize_code(llm, generated_code)    
+            generated_code_summary = summary_of_code(llm, generated_code)    
             msg += f'\n\n[생성된 코드 설명]\n{generated_code_summary}'
             sendResultMessage(connectionId, requestId, msg+reference)
 
