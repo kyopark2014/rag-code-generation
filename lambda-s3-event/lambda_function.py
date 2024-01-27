@@ -37,35 +37,30 @@ def delete_index_if_exist(index_name):
     else:
         print('no index: ', index_name)
 
-# load csv documents from s3
 def lambda_handler(event, context):
     print('event: ', event)
 
-    documentIds = []
     for record in event['Records']:
         bucket = record['s3']['bucket']['name']
         # translate utf8
         key = unquote_plus(record['s3']['object']['key']) # url decoding
         print('bucket: ', bucket)
         print('key: ', key)
-
-        # get metadata from s3
-        metadata_key = meta_prefix+key+'.metadata.json'
-        print('metadata_key: ', metadata_key)
-
-        metadata_obj = s3.get_object(Bucket=bucket, Key=metadata_key)
-        metadata_body = metadata_obj['Body'].read().decode('utf-8')
-        metadata = json.loads(metadata_body)
-        print('metadata: ', metadata)
-        documentId = metadata['DocumentId']
-        print('documentId: ', documentId)
-        documentIds.append(documentId)
-
-        # delete document index of opensearch
-        index_name = "idx-"+documentId
-        # print('index_name: ', index_name)
-        delete_index_if_exist(index_name)
-    
+        
+        eventName = record['eventName']        
+        if eventName == 'ObjectRemoved:Delete':
+            file_type = key[key.rfind('.')+1:len(key)]
+            category = file_type
+            documentId = category + "-" + key
+            documentId = documentId.replace(' ', '_') # remove spaces
+            documentId = documentId.replace(',', '_') # remove commas # not allowed: [ " * \\ < | , > / ? ]
+            documentId = documentId.replace('/', '_') # remove slash
+            documentId = documentId.lower() # change to lowercase
+            # print('documentId: ', documentId)
+                    
+            # delete document index of opensearch
+            index_name = "idx-"+documentId
+            delete_index_if_exist(index_name)        
     return {
         'statusCode': 200
     }
