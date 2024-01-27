@@ -980,14 +980,19 @@ def getResponse(connectionId, jsonBody):
                     end = text.find(':')                    
                     print(f'start: {start}, end: {end}')
                     
-                    if start != -1:                        
+                    if start != -1:      
+                        function_name = text[start+1:end]
+                        print('function_name: ', function_name)
+                                          
                         summary = summarize_code(llm, text)
                         summary = summary.replace('\n\n', '\n') 
                         if summary[0] == '\n':
                             summary = summary[1:len(summary)]
-                        
-                        function_name = text[start+1:end]
-                        print('function_name: ', function_name)
+                            
+                        print('summary[:len(function_name)]: ', summary[:len(function_name)])
+                        if summary[:len(function_name)]==function_name:
+                            summary = summary[len(function_name)+2:len(summary)]
+                            print('modified summary: ', summary)
                         
                         docs.append(
                             Document(
