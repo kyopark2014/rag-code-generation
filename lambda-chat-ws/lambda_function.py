@@ -275,7 +275,7 @@ def load_code(file_type, s3_file_name):
     
     if file_type == 'py':        
         contents = doc.get()['Body'].read().decode('utf-8')
-        print('contents: ', contents)
+        # print('contents: ', contents)
     
     #new_contents = str(contents).replace("\n"," ") 
     #print('length: ', len(new_contents))
@@ -291,7 +291,7 @@ def load_code(file_type, s3_file_name):
     texts = text_splitter.split_text(contents) 
     
     for i, text in enumerate(texts):
-        print(f"#{i}: {text}")
+        print(f"Chunk #{i}: {text}")
                 
     return texts
 
