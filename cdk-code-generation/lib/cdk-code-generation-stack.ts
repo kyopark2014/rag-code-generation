@@ -13,7 +13,6 @@ import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as apigatewayv2 from 'aws-cdk-lib/aws-apigatewayv2';
 import * as opensearch from 'aws-cdk-lib/aws-opensearchservice';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
-import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
 
 const region = process.env.CDK_DEFAULT_REGION;    
@@ -488,21 +487,6 @@ export class CdkCodeGenerationStack extends cdk.Stack {
       });
     }
 
-    const googleApiSecret = new secretsmanager.Secret(this, `google-api-secret-for-${projectName}`, {
-      description: 'secret for google api key',
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
-      secretName: 'googl_api_key',
-      generateSecretString: {
-        secretStringTemplate: JSON.stringify({ 
-          google_cse_id: 'cse_id'
-        }),
-        generateStringKey: 'google_api_key',
-        excludeCharacters: '/@"',
-      },
-
-    });
-    googleApiSecret.grantRead(roleLambdaWebsocket) 
-
     // lambda-chat using websocket    
     const lambdaChatWebsocket = new lambda.DockerImageFunction(this, `lambda-chat-ws-for-${projectName}`, {
       description: 'lambda for chat using websocket',
@@ -526,7 +510,6 @@ export class CdkCodeGenerationStack extends cdk.Stack {
         roleArn: roleLambdaWebsocket.roleArn,
         numberOfRelevantDocs: numberOfRelevantDocs,
         profile_of_LLMs:profile_of_LLMs,
-        googleApiSecret: googleApiSecret.secretName,
         allowDualSearching: allowDualSearching
       }
     });     

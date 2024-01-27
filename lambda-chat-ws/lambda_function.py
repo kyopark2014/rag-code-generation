@@ -25,7 +25,6 @@ from langchain.vectorstores.opensearch_vector_search import OpenSearchVectorSear
 from langchain.embeddings import BedrockEmbeddings
 from langchain.chains import LLMChain
 from multiprocessing import Process, Pipe
-from googleapiclient.discovery import build
 
 s3 = boto3.client('s3')
 s3_bucket = os.environ.get('s3_bucket') # bucket name
@@ -50,25 +49,6 @@ MSG_HISTORY_LENGTH = 20
 speech_generation = True
 history_length = 0
 token_counter_history = 0
-allowDualSearching = os.environ.get('allowDualSearching')
-allowInternetSearching = 'false'
-
-# google search api
-googleApiSecret = os.environ.get('googleApiSecret')
-secretsmanager = boto3.client('secretsmanager')
-try:
-    get_secret_value_response = secretsmanager.get_secret_value(
-        SecretId=googleApiSecret
-    )
-    #print('get_secret_value_response: ', get_secret_value_response)
-    secret = json.loads(get_secret_value_response['SecretString'])
-    #print('secret: ', secret)
-    google_api_key = secret['google_api_key']
-    google_cse_id = secret['google_cse_id']
-    #print('google_cse_id: ', google_cse_id)    
-
-except Exception as e:
-    raise e
 
 # websocket
 connection_url = os.environ.get('connection_url')
@@ -627,14 +607,7 @@ def get_reference(docs, path, doc_prefix):
                 reference = reference + f"{i+1}. {page}page in <a href={uri} target=_blank>{name}</a>, {doc['rag_type']} ({doc['assessed_score']})\n"
             else:
                 reference = reference + f"{i+1}. <a href={uri} target=_blank>{name}</a>, {doc['rag_type']} ({doc['assessed_score']}), <a href=\"#\" onClick=\"alert(`{excerpt}`)\">관련문서</a>\n"
-                    
-        elif doc['rag_type'] == 'search': # google search
-            print(f'## Document(get_reference) {i+1}: {doc}')
-                
-            uri = doc['metadata']['source']
-            name = doc['metadata']['title']
-            reference = reference + f"{i+1}. <a href={uri} target=_blank>{name}</a>, {doc['rag_type']}, <a href=\"#\" onClick=\"alert(`{excerpt}`)\">관련문서</a>\n"
-        
+                            
     return reference
 
 def retrieve_from_vectorstore(query, top_k, rag_type):
@@ -759,29 +732,7 @@ def get_answer_using_RAG(llm, text, conv_type, connectionId, requestId, bedrock_
     rag_type = 'opensearch'
     relevant_docs = retrieve_from_vectorstore(query=revised_question, top_k=top_k, rag_type=rag_type)
     print(f'relevant_docs ({rag_type}): '+json.dumps(relevant_docs))
-
-    if allowDualSearching=='true' and isKorean(text)==True:
-        print('start RAG for translated revised question')
-        translated_revised_question = traslation_to_english(llm=llm, msg=revised_question)
-        print('translated_revised_question: ', translated_revised_question)
-
-        relevant_docs_using_translated_question = retrieve_from_vectorstore(query=translated_revised_question, top_k=4, rag_type=rag_type)
-                    
-        docs_translation_required = []
-        if len(relevant_docs_using_translated_question)>=1:
-            for i, doc in enumerate(relevant_docs_using_translated_question):
-                if isKorean(doc)==False:
-                    docs_translation_required.append(doc)
-                else:
-                    print(f"original {i}: {doc}")
-                    relevant_docs.append(doc)
-                                           
-            translated_docs = translate_relevant_documents_using_parallel_processing(docs_translation_required)
-            for i, doc in enumerate(translated_docs):
-                print(f"#### {i} (ENG): {doc['metadata']['excerpt']}")
-                print(f"#### {i} (KOR): {doc['metadata']['translated_excerpt']}")
-                relevant_docs.append(doc)
-
+    
     end_time_for_rag = time.time()
     time_for_rag = end_time_for_rag - end_time_for_revise
     print('processing time for RAG: ', time_for_rag)
@@ -790,52 +741,7 @@ def get_answer_using_RAG(llm, text, conv_type, connectionId, requestId, bedrock_
     if len(relevant_docs)>=1:
         selected_relevant_docs = priority_search(revised_question, relevant_docs, bedrock_embeddings)
         print('selected_relevant_docs: ', json.dumps(selected_relevant_docs))
-
-    if len(selected_relevant_docs)==0 and allowInternetSearching=='true':
-        print('No relevant document! So use google api')            
-        api_key = google_api_key
-        cse_id = google_cse_id 
-            
-        relevant_docs = []
-        try: 
-            service = build("customsearch", "v1", developerKey=api_key)
-            result = service.cse().list(q=revised_question, cx=cse_id).execute()
-            print('google search result: ', result)
-
-            if "items" in result:
-                for item in result['items']:
-                    api_type = "google api"
-                    excerpt = item['snippet']
-                    uri = item['link']
-                    title = item['title']
-                    confidence = ""
-                    assessed_score = ""
-                        
-                    doc_info = {
-                        "rag_type": 'search',
-                        "api_type": api_type,
-                        "confidence": confidence,
-                        "metadata": {
-                            "source": uri,
-                            "title": title,
-                            "excerpt": excerpt,
-                            "translated_excerpt": "",
-                        },
-                        "assessed_score": assessed_score,
-                    }
-                    relevant_docs.append(doc_info)                
-        except Exception:
-            err_msg = traceback.format_exc()
-            print('error message: ', err_msg)       
-
-            sendErrorMessage(connectionId, requestId, err_msg)    
-            raise Exception ("Not able to search using google api")   
-            
-        if len(relevant_docs)>=1:
-            selected_relevant_docs = priority_search(revised_question, relevant_docs, bedrock_embeddings)
-            print('selected_relevant_docs: ', json.dumps(selected_relevant_docs))
-        print('selected_relevant_docs (google): ', selected_relevant_docs)
-
+    
     end_time_for_priority_search = time.time() 
     time_for_priority_search = end_time_for_priority_search - end_time_for_rag
     print('processing time for priority search: ', time_for_priority_search)
@@ -944,7 +850,7 @@ def getResponse(connectionId, jsonBody):
     print('Conversation Type: ', conv_type)
 
     global vectorstore_opensearch, enableReference
-    global map_chain, map_chat, memory_chat, memory_chain, isReady, selected_LLM, allowDualSearching, allowInternetSearching
+    global map_chain, map_chat, memory_chat, memory_chain, isReady, selected_LLM
 
     # Multi-LLM
     profile = profile_of_LLMs[selected_LLM]
@@ -1049,19 +955,7 @@ def getResponse(connectionId, jsonBody):
             elif text == 'disableReference':
                 enableReference = 'false'
                 msg  = "Reference is disabled"
-            elif text == 'enableDualSearching':
-                allowDualSearching = 'true'
-                msg  = "Translated question is enabled"
-            elif text == 'disableDualSearching':
-                allowDualSearching = 'false'
-                msg  = "Translated question is disabled"
-            elif text == 'enableInternetSearching':
-                allowInternetSearching = 'true'
-                msg  = "Internet Search is enabled"
-            elif text == 'disableInternetSearching':
-                allowInternetSearching = 'false'
-                msg  = "Internet Search is disabled"
-
+            
             elif text == 'clearMemory':
                 memory_chain.clear()
                 map_chain[userId] = memory_chain
