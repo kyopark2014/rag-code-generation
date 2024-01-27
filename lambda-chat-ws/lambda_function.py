@@ -982,6 +982,8 @@ def getResponse(connectionId, jsonBody):
                     
                     if start != -1:                        
                         summary = summarize_code(llm, text)
+                        summary = summary.replace('\n\n', '\n')
+                        
                         function_name = text[start+1:end]
                         print('function_name: ', function_name)
                         
@@ -1014,8 +1016,8 @@ def getResponse(connectionId, jsonBody):
                     key = object
                     documentId = category + "-" + key
                     documentId = documentId.replace(' ', '_') # remove spaces
-                    documentId = documentId.replace(',', '_') # remove commas
-                    documentId = documentId.replace('/', '_') # remove commas
+                    documentId = documentId.replace(',', '_') # remove commas # not allowed: [ " * \\ < | , > / ? ]
+                    documentId = documentId.replace('/', '_') # remove slash
                     documentId = documentId.lower() # change to lowercase
                     print('documentId: ', documentId)
                     
