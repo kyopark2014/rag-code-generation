@@ -954,7 +954,7 @@ def getResponse(connectionId, jsonBody):
             isTyping(connectionId, requestId)
             
             object = body
-            file_type = object[object.rfind('.')+1:len(object)]            
+            file_type = object[object.rfind('.')+1:len(object)]
             print('file_type: ', file_type)
 
             if file_type == 'py':
@@ -963,7 +963,7 @@ def getResponse(connectionId, jsonBody):
                 docs = []
                 msg = ""
                 for i in range(len(texts)):
-                    summary = summarize_code(llm, texts[i])                    
+                    summary = summarize_code(llm, texts[i])
                     
                     docs.append(
                         Document(

@@ -12,11 +12,12 @@ exports.handler = async (event, context) => {
     //console.log('## EVENT: ' + JSON.stringify(event));
         
     let filename = event['filename'];
+    let requestId = event['requestId'];
     let contentType = event['contentType'];
 
     const s3Params = {
         Bucket: bucketName,
-        Key: s3_prefix+'/'+filename,
+        Key: s3_prefix+'/'+requestId+'/'+filename,
         Expires: URL_EXPIRATION_SECONDS,
         ContentType: contentType,
     };
