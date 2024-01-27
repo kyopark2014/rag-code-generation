@@ -290,8 +290,8 @@ def load_code(file_type, s3_file_name):
 
     texts = text_splitter.split_text(contents) 
     
-    for i, text in enumerate(texts):
-        print(f"Chunk #{i}: {text}")
+    #for i, text in enumerate(texts):
+    #    print(f"Chunk #{i}: {text}")
                 
     return texts
 
@@ -846,7 +846,13 @@ def getResponse(connectionId, jsonBody):
                 texts = load_code(file_type, object)
                 
                 docs = []
+                msg = ""
                 for i in range(len(texts)):
+                    summary = summarize_code(llm, texts[i])
+                    print(f'Summary {i}: ', summary)
+                    print(f'Code {i}: ', texts[i])
+                    msg += f"{summary}\n"
+                    
                     docs.append(
                         Document(
                             page_content=texts[i],
@@ -865,7 +871,7 @@ def getResponse(connectionId, jsonBody):
                     contexts.append(doc.page_content)
                     #print('contexts: ', contexts)
 
-                msg = summarize_code(llm, contexts)
+                # msg = summarize_code(llm, contexts)
                 
             else:
                 # msg = "uploaded file: "+object
