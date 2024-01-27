@@ -284,7 +284,7 @@ def load_code(file_type, s3_file_name):
         chunk_size=50,
         chunk_overlap=0,
         #separators=["def ", "\n\n", "\n", ".", " ", ""],
-        separators=["def "],
+        separators=["\ndef "],
         length_function = len,
     ) 
 
