@@ -541,9 +541,12 @@ def get_reference(docs, path, doc_prefix):
     for i, doc in enumerate(docs):
         excerpt = str(doc['metadata']['excerpt']).replace('"'," ")
         code = str(doc['metadata']['code']).replace('"'," ")
+        #excerpt = str(doc['metadata']['excerpt']).replace('"'," ")
+        #code = str(doc['metadata']['code']).replace('"'," ")
         
-        excerpt = str(excerpt).replace("\n","<br>")        
-        code = str(code).replace("\n","<br>")  
+        #excerpt = excerpt.replace("\n","<br>")        
+        #code = code.replace("\n","<br>")              
+       # 다.<br>-
 
         if doc['rag_type'][:10] == 'opensearch':
             print(f'## Document(get_reference) {i+1}: {doc}')
@@ -770,7 +773,9 @@ def get_code_using_RAG(llm, text, conv_type, connectionId, requestId, bedrock_em
     try: 
         isTyping(connectionId, requestId)
         stream = llm(PROMPT.format(context=relevant_code, question=text))
-        msg = readStreamMsg(connectionId, requestId, stream)            
+        msg = readStreamMsg(connectionId, requestId, stream)       
+        msg = msg.replace(" ","&nbsp;")      
+             
     except Exception:
         err_msg = traceback.format_exc()
         print('error message: ', err_msg)       
@@ -992,7 +997,7 @@ def getResponse(connectionId, jsonBody):
         # Summarize
         generated_code = msg[msg.find('<result>')+9:len(msg)-10]
         generated_code_summary = summarize_code(llm, generated_code)    
-        msg += f'\n\n생성된 코드 요약: \n{generated_code_summary}'
+        msg += f'\n\n[생성된 코드 설명]\n{generated_code_summary}'
         sendResultMessage(connectionId, requestId, msg+reference)
 
         elapsed_time = time.time() - start
