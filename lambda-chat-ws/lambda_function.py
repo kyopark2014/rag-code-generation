@@ -619,8 +619,7 @@ def get_reference(docs, path, doc_prefix):
                     page = doc['metadata']['document_attributes']['_excerpt_page_number']
             uri = doc['metadata']['source']
             name = doc['metadata']['title']
-
-            #print('opensearch page: ', page)
+            name = name[name.rfind('/')+1:len(name)]
 
             if page:                
                 reference = reference + f"{i+1}. {page}page in <a href={uri} target=_blank>{name}</a>, {doc['rag_type']} ({doc['assessed_score']}), <a href=\"#\" onClick=\"alert(`{excerpt}`)\">코드설명</a>, <a href=\"#\" onClick=\"alert(`{code}`)\">관련코드</a>\n"
