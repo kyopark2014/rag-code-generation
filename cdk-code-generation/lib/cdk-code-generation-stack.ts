@@ -19,7 +19,7 @@ const region = process.env.CDK_DEFAULT_REGION;
 const debug = false;
 const stage = 'dev';
 const s3_prefix = 'docs';
-const projectName = `rag-enhanced-searching`; 
+const projectName = `rag-code-generation`; 
 // const bucketName = `storage-for-${projectName}-${region}`; 
 
 const opensearch_account = "admin";
