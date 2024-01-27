@@ -926,8 +926,7 @@ def getResponse(connectionId, jsonBody):
                 msg  = "Referece is enabled"
             elif text == 'disableReference':
                 enableReference = 'false'
-                msg  = "Reference is disabled"
-            
+                msg  = "Reference is disabled"            
             elif text == 'clearMemory':
                 memory_chat.clear()                
                 map_chat[userId] = memory_chat
@@ -998,12 +997,12 @@ def getResponse(connectionId, jsonBody):
                         
         sendResultMessage(connectionId, requestId, msg+reference)
         # print('msg+reference: ', msg+reference)
-        
-        # Summarize
-        generated_code = msg[msg.find('<result>')+9:len(msg)-10]
-        generated_code_summary = summarize_code(llm, generated_code)    
-        msg += f'\n\n[생성된 코드 설명]\n{generated_code_summary}'
-        sendResultMessage(connectionId, requestId, msg+reference)
+                         
+        if reference: # Summarize       
+            generated_code = msg[msg.find('<result>')+9:len(msg)-10]
+            generated_code_summary = summarize_code(llm, generated_code)    
+            msg += f'\n\n[생성된 코드 설명]\n{generated_code_summary}'
+            sendResultMessage(connectionId, requestId, msg+reference)
 
         elapsed_time = time.time() - start
         print("total run time(sec): ", elapsed_time)
