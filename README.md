@@ -26,3 +26,6 @@ Context에 관련된 문서를 넣어서 아래와 같은 prompt를 이용하여
 
 코드를 사용할때 원본 코드, 참고한 코드 정보를 함께 보여주어서, 참조한 코드의 활용도를 높입니다.
 
+## 결과
+
+![result](https://github.com/kyopark2014/rag-code-generation/assets/52392004/1863643d-d263-408c-ae54-dfea3aa9eff5)
