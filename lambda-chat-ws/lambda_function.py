@@ -977,8 +977,10 @@ def getResponse(connectionId, jsonBody):
                 # for i in range(len(texts)):
                 for text in texts:
                     start = text.find('\ndef ')
-                    end = text.find(':')
-                    if start:                        
+                    end = text.find(':')                    
+                    print(f'start: {start}, end: {end}')
+                    
+                    if start != -1:                        
                         summary = summarize_code(llm, text)
                         function_name = text[start+2:end]
                         print('function_name: ', function_name)
@@ -998,12 +1000,7 @@ def getResponse(connectionId, jsonBody):
                         msg = msg + f'{function_name}:\n{summary}\n\n'
                                  
                 print('docs size: ', len(docs))
-                print('docs[0]: ', docs[0])    
-                print('docs[1]: ', docs[1])    
-                
-                # summary the code
-                #msg = summarize_code(llm, texts)
-                                
+                print('docs[0]: ', docs[0])                    
             else:
                 # msg = "uploaded file: "+object
                 msg = f"{file_type} is not supported"
