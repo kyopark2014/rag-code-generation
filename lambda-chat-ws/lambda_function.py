@@ -978,14 +978,14 @@ def getResponse(connectionId, jsonBody):
                 for text in texts:
                     start = text.find('\ndef ')
                     end = text.find(':')                    
-                    print(f'start: {start}, end: {end}')
+                    # print(f'start: {start}, end: {end}')
                     
                     if start != -1:                        
                         summary = summarize_code(llm, text)
                         summary = summary.replace('\n\n', '\n')
                         
                         function_name = text[start+1:end]
-                        print('function_name: ', function_name)
+                        # print('function_name: ', function_name)
                         
                         docs.append(
                             Document(
