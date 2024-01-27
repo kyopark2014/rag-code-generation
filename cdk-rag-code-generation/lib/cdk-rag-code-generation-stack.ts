@@ -28,6 +28,7 @@ const enableReference = 'true';
 let opensearch_url = "";
 const numberOfRelevantDocs = '4';
 const allowDualSearching='true'
+const enableNoriPlugin = 'true';
 
 const claude_instance = JSON.stringify([
   {
@@ -510,7 +511,8 @@ export class CdkRagCodeGenerationStack extends cdk.Stack {
         roleArn: roleLambdaWebsocket.roleArn,
         numberOfRelevantDocs: numberOfRelevantDocs,
         profile_of_LLMs:profile_of_LLMs,
-        allowDualSearching: allowDualSearching
+        allowDualSearching: allowDualSearching,
+        enableNoriPlugin: enableNoriPlugin
       }
     });     
     lambdaChatWebsocket.grantInvoke(new iam.ServicePrincipal('apigateway.amazonaws.com'));  

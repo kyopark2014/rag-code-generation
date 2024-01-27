@@ -51,6 +51,8 @@ speech_generation = True
 history_length = 0
 token_counter_history = 0
 
+enableNoriPlugin = os.environ.get('enableNoriPlugin')
+
 # websocket
 connection_url = os.environ.get('connection_url')
 client = boto3.client('apigatewaymanagementapi', endpoint_url=connection_url)
@@ -245,14 +247,26 @@ def delete_index_if_exist(index_name):
     else:
         print('no index: ', index_name)
 
-def store_document_for_opensearch(bedrock_embeddings, docs, userId, documentId):
-    index_name = "rag-index-"+documentId
+def get_index_name(documentId):
+    index_name = "idx-"+documentId
+    # print('index_name: ', index_name)
+                        
     print('index_name: ', index_name)
+    print('length of index_name: ', len(index_name))
+                            
+    if len(index_name)>=100: # reduce index size
+        index_name = 'idx-'+index_name[len(index_name)-100:]
+        print('modified index_name: ', index_name)
+    
+    return index_name
+
+def store_document_for_opensearch(bedrock_embeddings, docs, documentId):
+    index_name = get_index_name(documentId)
     
     delete_index_if_exist(index_name)
 
     try:
-        new_vectorstore = OpenSearchVectorSearch(
+        vectorstore = OpenSearchVectorSearch(
             index_name=index_name,  
             is_aoss = False,
             #engine="faiss",  # default: nmslib
@@ -260,14 +274,108 @@ def store_document_for_opensearch(bedrock_embeddings, docs, userId, documentId):
             opensearch_url = opensearch_url,
             http_auth=(opensearch_account, opensearch_passwd),
         )
-        response = new_vectorstore.add_documents(docs)
+        response = vectorstore.add_documents(docs, bulk_size = 2000)
         print('response of adding documents: ', response)
     except Exception:
         err_msg = traceback.format_exc()
         print('error message: ', err_msg)                
-        raise Exception ("Not able to request to LLM")
+        #raise Exception ("Not able to request to LLM")
 
     print('uploaded into opensearch')
+
+def store_document_for_opensearch_with_nori(bedrock_embeddings, docs, documentId):
+    index_name = get_index_name(documentId)
+    
+    delete_index_if_exist(index_name)
+    
+    index_body = {
+        'settings': {
+            'analysis': {
+                'analyzer': {
+                    'my_analyzer': {
+                        'char_filter': ['html_strip'], 
+                        'tokenizer': 'nori',
+                        'filter': ['nori_number','lowercase','trim','my_nori_part_of_speech'],
+                        'type': 'custom'
+                    }
+                },
+                'tokenizer': {
+                    'nori': {
+                        'decompound_mode': 'mixed',
+                        'discard_punctuation': 'true',
+                        'type': 'nori_tokenizer'
+                    }
+                },
+                "filter": {
+                    "my_nori_part_of_speech": {
+                        "type": "nori_part_of_speech",
+                        "stoptags": [
+                                "E", "IC", "J", "MAG", "MAJ",
+                                "MM", "SP", "SSC", "SSO", "SC",
+                                "SE", "XPN", "XSA", "XSN", "XSV",
+                                "UNA", "NA", "VSV"
+                        ]
+                    }
+                }
+            },
+            'index': {
+                'knn': True,
+                'knn.space_type': 'cosinesimil'  # Example space type
+            }
+        },
+        'mappings': {
+            'properties': {
+                'metadata': {
+                    'properties': {
+                        'source' : {'type': 'keyword'},                    
+                        'last_updated': {'type': 'date'},
+                        'project': {'type': 'keyword'},
+                        'seq_num': {'type': 'long'},
+                        'title': {'type': 'text'},  # For full-text search
+                        'url': {'type': 'text'},  # For full-text search
+                    }
+                },            
+                'text': {
+                    'analyzer': 'my_analyzer',
+                    'search_analyzer': 'my_analyzer',
+                    'type': 'text'
+                },
+                'vector_field': {
+                    'type': 'knn_vector',
+                    'dimension': 1536  # Replace with your vector dimension
+                }
+            }
+        }
+    }
+    
+    try: # create index
+        response = os_client.indices.create(
+            index_name,
+            body=index_body
+        )
+        print('index was created with nori plugin:', response)
+    except Exception:
+        err_msg = traceback.format_exc()
+        print('error message: ', err_msg)                
+        #raise Exception ("Not able to create the index")
+
+    try: # put the doucment
+        vectorstore = OpenSearchVectorSearch(
+            index_name=index_name,  
+            is_aoss = False,
+            #engine="faiss",  # default: nmslib
+            embedding_function = bedrock_embeddings,
+            opensearch_url = opensearch_url,
+            http_auth=(opensearch_account, opensearch_passwd),
+        )
+        response = vectorstore.add_documents(docs, bulk_size = 2000)
+        print('response of adding documents: ', response)
+    except Exception:
+        err_msg = traceback.format_exc()
+        print('error message: ', err_msg)                
+        #raise Exception ("Not able to request to LLM")
+
+    print('uploaded into opensearch')    
     
 # load a code file from s3
 def load_code(file_type, s3_file_name):
@@ -850,17 +958,18 @@ def getResponse(connectionId, jsonBody):
                 msg = ""
                 for i in range(len(texts)):
                     summary = summarize_code(llm, texts[i])
-                    print(f'Summary {i}: ', summary)
-                    print(f'Code {i}: ', texts[i])
-                    msg += f"{summary}\n"
+                    print(f'Summary #{i}: ', summary)
+                    print(f'Code #{i}: ', texts[i])
+                    msg += f"{summary}\n\n"
                     
                     docs.append(
                         Document(
-                            page_content=texts[i],
+                            page_content=summary,
                             metadata={
                                 'name': object,
                                 # 'page':i+1,
-                                'uri': path+doc_prefix+parse.quote(object)
+                                'uri': path+doc_prefix+parse.quote(object),
+                                'code': texts[i]
                             }
                         )
                     )
@@ -881,7 +990,7 @@ def getResponse(connectionId, jsonBody):
             if conv_type == 'qa':
                 start_time = time.time()
                 
-                category = "upload"
+                category = "code"
                 key = object
                 documentId = category + "-" + key
                 documentId = documentId.replace(' ', '_') # remove spaces
@@ -889,8 +998,11 @@ def getResponse(connectionId, jsonBody):
                 documentId = documentId.lower() # change to lowercase
                 print('documentId: ', documentId)
 
-                if file_type == 'pdf' or file_type == 'txt' or file_type == 'csv' or file_type == 'pptx' or file_type == 'docx':
-                    store_document_for_opensearch(bedrock_embeddings, docs, userId, documentId)
+                if file_type == 'py':
+                    if enableNoriPlugin == 'true':
+                        store_document_for_opensearch_with_nori(bedrock_embeddings, docs, documentId)
+                    else:
+                        store_document_for_opensearch(bedrock_embeddings, docs, documentId)
 
                 print('processing time: ', str(time.time() - start_time))
                         
