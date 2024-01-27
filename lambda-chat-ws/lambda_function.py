@@ -955,7 +955,6 @@ def getResponse(connectionId, jsonBody):
                 msg = ""
                 for i in range(len(texts)):
                     summary = summarize_code(llm, texts[i])                    
-                    msg += f"{summary}\n\n"
                     
                     docs.append(
                         Document(
@@ -971,6 +970,9 @@ def getResponse(connectionId, jsonBody):
                 print('docs size: ', len(docs))
                 print('docs[0]: ', docs[0])    
                 print('docs[1]: ', docs[1])    
+                
+                # summary the code
+                msg = summarize_code(llm, texts)
                                 
             else:
                 # msg = "uploaded file: "+object
@@ -998,7 +1000,7 @@ def getResponse(connectionId, jsonBody):
         sendResultMessage(connectionId, requestId, msg+reference)
         # print('msg+reference: ', msg+reference)
                          
-        if reference: # Summarize       
+        if reference: # Summarize the generated code 
             generated_code = msg[msg.find('<result>')+9:len(msg)-10]
             generated_code_summary = summarize_code(llm, generated_code)    
             msg += f'\n\n[생성된 코드 설명]\n{generated_code_summary}'
