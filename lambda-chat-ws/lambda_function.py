@@ -545,16 +545,8 @@ def get_reference(docs, path, doc_prefix):
         
         excerpt = excerpt.replace('\n','\\n')
         code = code.replace('\n','\\n')
-        #excerpt = doc['metadata']['excerpt']
-        #code = doc['metadata']['code']
-        #excerpt = doc['metadata']['excerpt'].replace('"','\"')
-        #code = doc['metadata']['code'].replace('"','\"')
+        print('reference doc: ', json.dumps(doc))
         
-        print('doc: ', json.dumps(doc))
-        
-        #excerpt = excerpt.replace("<br/><br/>","\n")        
-        #code = code.replace("<br/><br/>","\n")           
-
         if doc['rag_type'][:10] == 'opensearch':
             print(f'## Document(get_reference) {i+1}: {doc}')
                 
