@@ -540,13 +540,16 @@ def priority_search(query, relevant_docs, bedrock_embeddings):
 def get_reference(docs, path, doc_prefix):
     reference = "\n\nFrom\n"
     for i, doc in enumerate(docs):
-        excerpt = doc['metadata']['excerpt'].replace('"'," ")
-        code = doc['metadata']['code'].replace('"'," ")
+        excerpt = doc['metadata']['excerpt']
+        code = doc['metadata']['code']
+        #excerpt = doc['metadata']['excerpt'].replace('"'," ")
+        #code = doc['metadata']['code'].replace('"'," ")
         
         print('doc: ', json.dumps(doc))
         
         excerpt = excerpt.replace("<br/><br/>","\n")        
         code = code.replace("<br/><br/>","\n")   
+        
 
         if doc['rag_type'][:10] == 'opensearch':
             print(f'## Document(get_reference) {i+1}: {doc}')
@@ -563,7 +566,7 @@ def get_reference(docs, path, doc_prefix):
             if page:                
                 reference = reference + f"{i+1}. {page}page in <a href={uri} target=_blank>{name}</a>, {doc['rag_type']} ({doc['assessed_score']}), <a href=\"#\" onClick=\"alert(`{excerpt}`)\">코드설명</a>, <a href=\"#\" onClick=\"alert(`{code}`)\">관련코드</a>\n"
             else:
-                reference = reference + f"{i+1}. <a href={uri} target=_blank>{name}</a>, {doc['rag_type']} ({doc['assessed_score']}), <a href=\"#\" onClick=\"alert(`{excerpt}`)\">코드설명</a>, <a href=\"#\" onClick=\"alert(`{code}`)\">관련코드</a>\n"
+                reference = reference + f"{i+1}. <a href={uri} target=_blank>{name}</a>, {doc['rag_type']} ({doc['assessed_score']}), <a href=\"#\" onClick=\"alert(`{excerpt}`)\">코드설명</a>, <a href=\"#\" onClick=\"alert(<pre>`{code}`</pre>)\">관련코드</a>\n"
                             
     return reference
 
