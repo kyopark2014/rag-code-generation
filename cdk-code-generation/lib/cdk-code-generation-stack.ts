@@ -20,7 +20,7 @@ const debug = false;
 const stage = 'dev';
 const s3_prefix = 'docs';
 const projectName = `rag-code-generation`; 
-// const bucketName = `storage-for-${projectName}-${region}`; 
+const bucketName = `storage-for-${projectName}-${region}`; 
 
 const opensearch_account = "admin";
 const opensearch_passwd = "Wifi1234!";
