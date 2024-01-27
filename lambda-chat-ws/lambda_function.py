@@ -542,8 +542,8 @@ def get_reference(docs, path, doc_prefix):
         excerpt = str(doc['metadata']['excerpt']).replace('"'," ")
         code = str(doc['metadata']['code']).replace('"'," ")
         
-        excerpt = str(excerpt).replace('<br/>',"\n")        
-        code = str(code).replace('<br/>',"\n") 
+        excerpt = str(excerpt).replace("\n","<br>")        
+        code = str(code).replace("\n","<br>")  
 
         if doc['rag_type'][:10] == 'opensearch':
             print(f'## Document(get_reference) {i+1}: {doc}')
@@ -992,7 +992,7 @@ def getResponse(connectionId, jsonBody):
         # Summarize
         generated_code = msg[msg.find('<result>')+9:len(msg)-10]
         generated_code_summary = summarize_code(llm, generated_code)    
-        msg += f'\n\n생성된 코드 요약: {generated_code_summary}'
+        msg += f'\n\n생성된 코드 요약: \n{generated_code_summary}'
         sendResultMessage(connectionId, requestId, msg+reference)
 
         elapsed_time = time.time() - start
