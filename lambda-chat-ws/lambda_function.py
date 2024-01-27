@@ -1022,7 +1022,7 @@ def getResponse(connectionId, jsonBody):
                 
                 if file_type == 'py':
                     category = file_type
-                    key = object
+                    key = doc_prefix+object
                     documentId = category + "-" + key
                     documentId = documentId.replace(' ', '_') # remove spaces
                     documentId = documentId.replace(',', '_') # remove commas # not allowed: [ " * \\ < | , > / ? ]
