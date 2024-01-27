@@ -22,7 +22,8 @@ from botocore.config import Config
 
 from langchain.vectorstores.faiss import FAISS
 from langchain.vectorstores.opensearch_vector_search import OpenSearchVectorSearch
-from langchain.embeddings import BedrockEmbeddings
+#from langchain.embeddings import BedrockEmbeddings
+from langchain_community.embeddings import BedrockEmbeddings
 from langchain.chains import LLMChain
 from multiprocessing import Process, Pipe
 
