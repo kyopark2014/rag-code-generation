@@ -982,7 +982,9 @@ def getResponse(connectionId, jsonBody):
                     
                     if start != -1:                        
                         summary = summarize_code(llm, text)
-                        summary = summary.replace('\n\n', '\n')
+                        summary = summary.replace('\n\n', '\n') 
+                        if summary[0] == '\n':
+                            summary = summary[1:len(summary)]
                         
                         function_name = text[start+1:end]
                         # print('function_name: ', function_name)
