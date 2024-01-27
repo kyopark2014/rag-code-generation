@@ -540,8 +540,11 @@ def priority_search(query, relevant_docs, bedrock_embeddings):
 def get_reference(docs, path, doc_prefix):
     reference = "\n\nFrom\n"
     for i, doc in enumerate(docs):
-        excerpt = str(doc['metadata']['excerpt'])
-        code = str(doc['metadata']['code'])
+        excerpt = doc['metadata']['excerpt']
+        code = doc['metadata']['code']
+        
+        print('excerpt: ', excerpt)
+        print('code: ', code)
         #excerpt = str(doc['metadata']['excerpt']).replace('"'," ")
         #code = str(doc['metadata']['code']).replace('"'," ")
         
