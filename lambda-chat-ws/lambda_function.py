@@ -783,7 +783,7 @@ def get_code_using_RAG(llm, text, conv_type, connectionId, requestId, bedrock_em
     end_time_for_inference = time.time()
     time_for_inference = end_time_for_inference - end_time_for_priority_search
     print('processing time for inference: ', time_for_inference)
-        
+    
     return msg, reference
 
 def get_answer_using_ConversationChain(text, conversation, conv_type, connectionId, requestId):
@@ -962,14 +962,7 @@ def getResponse(connectionId, jsonBody):
                 print('docs size: ', len(docs))
                 print('docs[0]: ', docs[0])    
                 print('docs[1]: ', docs[1])    
-                
-                contexts = []
-                for doc in docs:
-                    contexts.append(doc.page_content)
-                    #print('contexts: ', contexts)
-
-                # msg = summarize_code(llm, contexts)
-                
+                                
             else:
                 # msg = "uploaded file: "+object
                 msg = f"{file_type} is not supported"
@@ -995,6 +988,12 @@ def getResponse(connectionId, jsonBody):
                         
         sendResultMessage(connectionId, requestId, msg+reference)
         # print('msg+reference: ', msg+reference)
+        
+        # Summarize
+        generated_code = msg[msg.find('<result>')+9:len(msg)-10]
+        generated_code_summary = summarize_code(llm, generated_code)    
+        msg += f'\n\n생성된 코드 요약: {generated_code_summary}'
+        sendResultMessage(connectionId, requestId, msg+reference)
 
         elapsed_time = time.time() - start
         print("total run time(sec): ", elapsed_time)
