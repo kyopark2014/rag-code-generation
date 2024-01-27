@@ -1105,6 +1105,8 @@ def getResponse(connectionId, jsonBody):
             generated_code = msg[msg.find('<result>')+9:len(msg)-10]
             generated_code_summary = summary_of_code(llm, generated_code)    
             msg += f'\n\n[생성된 코드 설명]\n{generated_code_summary}'
+            msg = msg.replace('\n\n\n', '\n\n') 
+            
             sendResultMessage(connectionId, requestId, msg+reference)
 
         elapsed_time = time.time() - start
