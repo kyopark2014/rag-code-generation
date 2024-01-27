@@ -982,7 +982,7 @@ def getResponse(connectionId, jsonBody):
                     
                     if start != -1:                        
                         summary = summarize_code(llm, text)
-                        function_name = text[start+2:end]
+                        function_name = text[start+1:end]
                         print('function_name: ', function_name)
                         
                         docs.append(
@@ -1000,7 +1000,8 @@ def getResponse(connectionId, jsonBody):
                         msg = msg + f'{function_name}:\n{summary}\n\n'
                                  
                 print('docs size: ', len(docs))
-                print('docs[0]: ', docs[0])                    
+                if len(docs)>=1:
+                    print('docs[0]: ', docs[0])                    
             else:
                 # msg = "uploaded file: "+object
                 msg = f"{file_type} is not supported"
@@ -1014,6 +1015,7 @@ def getResponse(connectionId, jsonBody):
                     documentId = category + "-" + key
                     documentId = documentId.replace(' ', '_') # remove spaces
                     documentId = documentId.replace(',', '_') # remove commas
+                    documentId = documentId.replace('/', '_') # remove commas
                     documentId = documentId.lower() # change to lowercase
                     print('documentId: ', documentId)
                     
