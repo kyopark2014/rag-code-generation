@@ -957,9 +957,7 @@ def getResponse(connectionId, jsonBody):
                 docs = []
                 msg = ""
                 for i in range(len(texts)):
-                    summary = summarize_code(llm, texts[i])
-                    print(f'Summary #{i}: ', summary)
-                    print(f'Code #{i}: ', texts[i])
+                    summary = summarize_code(llm, texts[i])                    
                     msg += f"{summary}\n\n"
                     
                     docs.append(
@@ -972,10 +970,11 @@ def getResponse(connectionId, jsonBody):
                                 'code': texts[i]
                             }
                         )
-                    )
-                print('docs[0]: ', docs[0])    
+                    )                
                 print('docs size: ', len(docs))
-
+                print('docs[0]: ', docs[0])    
+                print('docs[1]: ', docs[1])    
+                
                 contexts = []
                 for doc in docs:
                     contexts.append(doc.page_content)
