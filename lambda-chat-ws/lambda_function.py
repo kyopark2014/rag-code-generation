@@ -384,7 +384,7 @@ def load_code(file_type, s3_file_name):
 
     texts = text_splitter.split_text(contents) 
     
-    for i, text in range(texts):
+    for i, text in enumerate(texts):
         print(f"#{i}: {text}")
                 
     return texts
