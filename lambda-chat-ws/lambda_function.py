@@ -26,6 +26,7 @@ from langchain.vectorstores.opensearch_vector_search import OpenSearchVectorSear
 from langchain_community.embeddings import BedrockEmbeddings
 from langchain.chains import LLMChain
 from multiprocessing import Process, Pipe
+from opensearchpy import OpenSearch
 
 s3 = boto3.client('s3')
 s3_bucket = os.environ.get('s3_bucket') # bucket name
@@ -236,7 +237,6 @@ def store_document_for_faiss(docs, vectorstore_faiss):
     vectorstore_faiss.add_documents(docs)       
     print('uploaded into faiss')
 
-from opensearchpy import OpenSearch
 def delete_index_if_exist(index_name):
     if os_client.indices.exists(index_name):
         print('remove index: ', index_name)
