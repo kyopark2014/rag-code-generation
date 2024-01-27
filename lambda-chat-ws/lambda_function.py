@@ -389,6 +389,29 @@ def load_code(file_type, s3_file_name):
                 
     return texts
 
+def summarize_code(llm, msg):
+    PROMPT = """\n\nHuman: 다음의 <article>의 python code입니다. 각 함수의 기능과 역할을 자세하게 500자 이내로 설명하세요. 결과는 <result> tag를 붙여주세요.
+           
+    <article>
+    {input}
+    </article>
+                        
+    Assistant:"""
+ 
+    try:
+        translated_msg = llm(PROMPT.format(input=msg))
+        #print('translated_msg: ', translated_msg)
+    except Exception:
+        err_msg = traceback.format_exc()
+        print('error message: ', err_msg)        
+        raise Exception ("Not able to translate the message")
+   
+    msg = translated_msg[translated_msg.find('<result>')+9:len(translated_msg)-10]
+   
+    # return msg.replace("\n"," ")
+    return msg
+
+
 def get_summary(llm, texts):    
     # check korean
     pattern_hangul = re.compile('[\u3131-\u3163\uac00-\ud7a3]+') 
@@ -1040,7 +1063,7 @@ def getResponse(connectionId, jsonBody):
                 msg = get_summary(llm, contexts)
             
             elif file_type == 'py':
-                load_code(file_type, object)
+                texts = load_code(file_type, object)
                 
                 docs = []
                 for i in range(len(texts)):
@@ -1062,7 +1085,7 @@ def getResponse(connectionId, jsonBody):
                     contexts.append(doc.page_content)
                 print('contexts: ', contexts)
 
-                msg = get_summary(llm, contexts)
+                msg = summarize_code(llm, contexts)
                 
             else:
                 msg = "uploaded file: "+object
