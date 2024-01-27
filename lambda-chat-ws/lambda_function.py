@@ -574,6 +574,12 @@ def get_reference(docs, path, doc_prefix):
                             
     return reference
 
+def checkDupulication(relevant_docs, doc_info):
+    for doc in relevant_docs:
+        if doc['metadata']['excerpt'] == doc_info['metadata']['excerpt']:
+            return True
+    return False
+
 def retrieve_from_vectorstore(query, top_k, rag_type):
     print(f"query: {query} ({rag_type})")
 
@@ -736,7 +742,10 @@ def retrieve_from_vectorstore(query, top_k, rag_type):
                         #"feedback_token": feedback_token
                         "assessed_score": assessed_score,
                     }
-                relevant_docs.append(doc_info)
+                
+                if checkDupulication(relevant_docs, doc_info) == False:
+                    relevant_docs.append(doc_info)
+                    
     return relevant_docs
 
 def get_code_using_RAG(llm, text, conv_type, connectionId, requestId, bedrock_embeddings):
