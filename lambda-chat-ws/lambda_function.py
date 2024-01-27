@@ -1010,7 +1010,9 @@ def getResponse(connectionId, jsonBody):
                                  
                 print('docs size: ', len(docs))
                 if len(docs)>=1:
-                    print('docs[0]: ', docs[0])                    
+                    print('docs[0]: ', docs[0])         
+                
+                msg = msg.replace('\n\n', '\n')      
             else:
                 # msg = "uploaded file: "+object
                 msg = f"{file_type} is not supported"
