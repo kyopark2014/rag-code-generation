@@ -53,6 +53,19 @@ token_counter_history = 0
 
 enableNoriPlugin = os.environ.get('enableNoriPlugin')
 
+os_client = OpenSearch(
+    hosts = [{
+        'host': opensearch_url.replace("https://", ""), 
+        'port': 443
+    }],
+    http_compress = True,
+    http_auth=(opensearch_account, opensearch_passwd),
+    use_ssl = True,
+    verify_certs = True,
+    ssl_assert_hostname = False,
+    ssl_show_warn = False,
+)
+
 # websocket
 connection_url = os.environ.get('connection_url')
 client = boto3.client('apigatewaymanagementapi', endpoint_url=connection_url)
@@ -225,22 +238,9 @@ def store_document_for_faiss(docs, vectorstore_faiss):
 
 from opensearchpy import OpenSearch
 def delete_index_if_exist(index_name):
-    client = OpenSearch(
-        hosts = [{
-            'host': opensearch_url.replace("https://", ""), 
-            'port': 443
-        }],
-        http_compress = True,
-        http_auth=(opensearch_account, opensearch_passwd),
-        use_ssl = True,
-        verify_certs = True,
-        ssl_assert_hostname = False,
-        ssl_show_warn = False,
-    )
-
-    if client.indices.exists(index_name):
+    if os_client.indices.exists(index_name):
         print('remove index: ', index_name)
-        response = client.indices.delete(
+        response = os_client.indices.delete(
             index=index_name
         )
         print('response(remove): ', response)    
@@ -990,15 +990,15 @@ def getResponse(connectionId, jsonBody):
             if conv_type == 'qa':
                 start_time = time.time()
                 
-                category = "code"
-                key = object
-                documentId = category + "-" + key
-                documentId = documentId.replace(' ', '_') # remove spaces
-                documentId = documentId.replace(',', '_') # remove commas
-                documentId = documentId.lower() # change to lowercase
-                print('documentId: ', documentId)
-
                 if file_type == 'py':
+                    category = file_type
+                    key = object
+                    documentId = category + "-" + key
+                    documentId = documentId.replace(' ', '_') # remove spaces
+                    documentId = documentId.replace(',', '_') # remove commas
+                    documentId = documentId.lower() # change to lowercase
+                    print('documentId: ', documentId)
+                    
                     if enableNoriPlugin == 'true':
                         store_document_for_opensearch_with_nori(bedrock_embeddings, docs, documentId)
                     else:
