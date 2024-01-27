@@ -482,6 +482,7 @@ def readStreamMsg(connectionId, requestId, stream):
         for event in stream:
             #print('event: ', event)
             msg = msg + event
+            msg = msg.replace(" ","&nbsp;")  
 
             result = {
                 'request_id': requestId,
@@ -539,8 +540,8 @@ def priority_search(query, relevant_docs, bedrock_embeddings):
 def get_reference(docs, path, doc_prefix):
     reference = "\n\nFrom\n"
     for i, doc in enumerate(docs):
-        excerpt = str(doc['metadata']['excerpt']).replace('"'," ")
-        code = str(doc['metadata']['code']).replace('"'," ")
+        excerpt = str(doc['metadata']['excerpt'])
+        code = str(doc['metadata']['code'])
         #excerpt = str(doc['metadata']['excerpt']).replace('"'," ")
         #code = str(doc['metadata']['code']).replace('"'," ")
         
@@ -773,9 +774,7 @@ def get_code_using_RAG(llm, text, conv_type, connectionId, requestId, bedrock_em
     try: 
         isTyping(connectionId, requestId)
         stream = llm(PROMPT.format(context=relevant_code, question=text))
-        msg = readStreamMsg(connectionId, requestId, stream)       
-        msg = msg.replace(" ","&nbsp;")      
-             
+        msg = readStreamMsg(connectionId, requestId, stream)                    
     except Exception:
         err_msg = traceback.format_exc()
         print('error message: ', err_msg)       
