@@ -470,12 +470,6 @@ def load_chat_history(userId, allowTime, conv_type):
         type = item['type']['S']
 
         if type == 'text':
-            memory_chain.chat_memory.add_user_message(text)
-            if len(msg) > MSG_LENGTH:
-                memory_chain.chat_memory.add_ai_message(msg[:MSG_LENGTH])                          
-            else:
-                memory_chain.chat_memory.add_ai_message(msg) 
-                
             if len(msg) > MSG_LENGTH:
                 memory_chat.save_context({"input": text}, {"output": msg[:MSG_LENGTH]})
             else:
@@ -513,77 +507,6 @@ def readStreamMsg(connectionId, requestId, stream):
             sendMessage(connectionId, result)
     # print('msg: ', msg)
     return msg
-
-_ROLE_MAP = {"human": "\n\nHuman: ", "ai": "\n\nAssistant: "}
-def extract_chat_history_from_memory():
-    chat_history = []
-    chats = memory_chain.load_memory_variables({})    
-    # print('chats: ', chats)
-
-    for dialogue_turn in chats['chat_history']:
-        role_prefix = _ROLE_MAP.get(dialogue_turn.type, f"{dialogue_turn.type}: ")
-        history = f"{role_prefix[2:]}{dialogue_turn.content}"
-        if len(history)>MSG_LENGTH:
-            chat_history.append(history[:MSG_LENGTH])
-        else:
-            chat_history.append(history)
-
-    return chat_history
-
-def get_revised_question(llm, connectionId, requestId, query):    
-    # check korean
-    pattern_hangul = re.compile('[\u3131-\u3163\uac00-\ud7a3]+')
-    word_kor = pattern_hangul.search(str(query))
-    print('word_kor: ', word_kor)
-
-    if word_kor and word_kor != 'None':
-        condense_template = """
-        <history>
-        {chat_history}
-        </history>
-
-        Human: <history>를 참조하여, 다음의 <question>의 뜻을 명확히 하는 새로운 질문을 한국어로 생성하세요. 새로운 질문은 원래 질문의 중요한 단어를 반드시 포함합니다.
-
-        <question>            
-        {question}
-        </question>
-            
-        Assistant: 새로운 질문:"""
-    else: 
-        condense_template = """
-        <history>
-        {chat_history}
-        </history>
-        Answer only with the new question.
-
-        Human: using <history>, rephrase the follow up <question> to be a standalone question. The standalone question must have main words of the original question.
-         
-        <quesion>
-        {question}
-        </question>
-
-        Assistant: Standalone question:"""
-
-    print('condense_template: ', condense_template)
-
-    print('start prompt!')
-
-    condense_prompt_claude = PromptTemplate.from_template(condense_template)        
-    condense_prompt_chain = LLMChain(llm=llm, prompt=condense_prompt_claude)
-    chat_history = extract_chat_history_from_memory()
-
-    try:         
-        revised_question = condense_prompt_chain.run({"chat_history": chat_history, "question": query})
-        print('revised_question: '+revised_question)
-
-    except Exception:
-        err_msg = traceback.format_exc()
-        print('error message: ', err_msg)                
-
-        sendErrorMessage(connectionId, requestId, err_msg)        
-        raise Exception ("Not able to request to LLM")
-    
-    return revised_question
 
 def priority_search(query, relevant_docs, bedrock_embeddings):
     excerpts = []
@@ -761,34 +684,29 @@ def translate_relevant_documents_using_parallel_processing(docs):
     return relevant_docs
 
 def get_answer_using_RAG(llm, text, conv_type, connectionId, requestId, bedrock_embeddings):
-    global time_for_revise, time_for_rag, time_for_inference, time_for_priority_search, number_of_relevant_docs  # for debug
-    time_for_revise = time_for_rag = time_for_inference = time_for_priority_search = number_of_relevant_docs = 0
+    global time_for_rag, time_for_inference, time_for_priority_search, number_of_relevant_docs  # for debug
+    time_for_rag = time_for_inference = time_for_priority_search = number_of_relevant_docs = 0
     
     reference = ""
-    start_time_for_revise = time.time()
+    start_time_for_rag = time.time()
 
-    revised_question = get_revised_question(llm, connectionId, requestId, text) # generate new prompt using chat history                    
-    PROMPT = get_prompt_template(revised_question, conv_type)
+    PROMPT = get_prompt_template(text, conv_type)
     # print('PROMPT: ', PROMPT)        
 
-    end_time_for_revise = time.time()
-    time_for_revise = end_time_for_revise - start_time_for_revise
-    print('processing time for revised question: ', time_for_revise)
-
     relevant_docs = [] 
-    print('start RAG for revised question')
+    print('start RAG for question')
 
     rag_type = 'opensearch'
-    relevant_docs = retrieve_from_vectorstore(query=revised_question, top_k=top_k, rag_type=rag_type)
+    relevant_docs = retrieve_from_vectorstore(query=text, top_k=top_k, rag_type=rag_type)
     print(f'relevant_docs ({rag_type}): '+json.dumps(relevant_docs))
     
     end_time_for_rag = time.time()
-    time_for_rag = end_time_for_rag - end_time_for_revise
+    time_for_rag = end_time_for_rag - start_time_for_rag
     print('processing time for RAG: ', time_for_rag)
 
     selected_relevant_docs = []
     if len(relevant_docs)>=1:
-        selected_relevant_docs = priority_search(revised_question, relevant_docs, bedrock_embeddings)
+        selected_relevant_docs = priority_search(text, relevant_docs, bedrock_embeddings)
         print('selected_relevant_docs: ', json.dumps(selected_relevant_docs))
     
     end_time_for_priority_search = time.time() 
@@ -808,7 +726,7 @@ def get_answer_using_RAG(llm, text, conv_type, connectionId, requestId, bedrock_
 
     try: 
         isTyping(connectionId, requestId)
-        stream = llm(PROMPT.format(context=relevant_context, question=revised_question))
+        stream = llm(PROMPT.format(context=relevant_context, question=text))
         msg = readStreamMsg(connectionId, requestId, stream)            
     except Exception:
         err_msg = traceback.format_exc()
@@ -823,9 +741,6 @@ def get_answer_using_RAG(llm, text, conv_type, connectionId, requestId, bedrock_
     time_for_inference = end_time_for_inference - end_time_for_priority_search
     print('processing time for inference: ', time_for_inference)
         
-    memory_chain.chat_memory.add_user_message(text)  # append new diaglog
-    memory_chain.chat_memory.add_ai_message(msg)
-
     return msg, reference
 
 def get_answer_using_ConversationChain(text, conversation, conv_type, connectionId, requestId):
@@ -899,7 +814,7 @@ def getResponse(connectionId, jsonBody):
     print('Conversation Type: ', conv_type)
 
     global vectorstore_opensearch, enableReference
-    global map_chain, map_chat, memory_chat, memory_chain, isReady, selected_LLM
+    global map_chain, map_chat, memory_chat, isReady, selected_LLM
 
     # Multi-LLM
     profile = profile_of_LLMs[selected_LLM]
@@ -939,15 +854,10 @@ def getResponse(connectionId, jsonBody):
     # create memory
     if userId in map_chat or userId in map_chain:  
         print('memory exist. reuse it!')        
-        memory_chain = map_chain[userId]
         memory_chat = map_chat[userId]
-        conversation = ConversationChain(llm=llm, verbose=False, memory=memory_chat)
-        
+        conversation = ConversationChain(llm=llm, verbose=False, memory=memory_chat)        
     else: 
-        print('memory does not exist. create new one!')
-        memory_chain = ConversationBufferWindowMemory(memory_key="chat_history", output_key='answer', return_messages=True, k=10)
-        map_chain[userId] = memory_chain
-        
+        print('memory does not exist. create new one!')        
         memory_chat = ConversationBufferWindowMemory(human_prefix='Human', ai_prefix='Assistant', k=MSG_HISTORY_LENGTH)
         map_chat[userId] = memory_chat
 
@@ -1006,8 +916,6 @@ def getResponse(connectionId, jsonBody):
                 msg  = "Reference is disabled"
             
             elif text == 'clearMemory':
-                memory_chain.clear()
-                map_chain[userId] = memory_chain
                 memory_chat.clear()                
                 map_chat[userId] = memory_chat
                 conversation = ConversationChain(llm=llm, verbose=False, memory=memory_chat)
@@ -1058,7 +966,7 @@ def getResponse(connectionId, jsonBody):
                 contexts = []
                 for doc in docs:
                     contexts.append(doc.page_content)
-                print('contexts: ', contexts)
+                #print('contexts: ', contexts)
 
                 msg = get_summary(llm, contexts)
             
@@ -1083,7 +991,7 @@ def getResponse(connectionId, jsonBody):
                 contexts = []
                 for doc in docs:
                     contexts.append(doc.page_content)
-                print('contexts: ', contexts)
+                    #print('contexts: ', contexts)
 
                 msg = summarize_code(llm, contexts)
                 
