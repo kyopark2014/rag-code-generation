@@ -363,6 +363,32 @@ def load_csv_document(path, doc_prefix, s3_file_name):
 
     return docs
 
+# load a code file from s3
+def load_code(file_type, s3_file_name):
+    s3r = boto3.resource("s3")
+    doc = s3r.Object(s3_bucket, s3_prefix+'/'+s3_file_name)
+    
+    if file_type == 'py':        
+        contents = doc.get()['Body'].read().decode('utf-8')
+        print('contents: ', contents)
+    
+    #new_contents = str(contents).replace("\n"," ") 
+    #print('length: ', len(new_contents))
+
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1000,
+        chunk_overlap=100,
+        separators=["def ", "\n\n", "\n", ".", " ", ""],
+        length_function = len,
+    ) 
+
+    texts = text_splitter.split_text(contents) 
+    
+    for i, text in range(texts):
+        print(f"#{i}: {text}")
+                
+    return texts
+
 def get_summary(llm, texts):    
     # check korean
     pattern_hangul = re.compile('[\u3131-\u3163\uac00-\ud7a3]+') 
@@ -1012,6 +1038,32 @@ def getResponse(connectionId, jsonBody):
                 print('contexts: ', contexts)
 
                 msg = get_summary(llm, contexts)
+            
+            elif file_type == 'py':
+                load_code(file_type, object)
+                
+                docs = []
+                for i in range(len(texts)):
+                    docs.append(
+                        Document(
+                            page_content=texts[i],
+                            metadata={
+                                'name': object,
+                                # 'page':i+1,
+                                'uri': path+doc_prefix+parse.quote(object)
+                            }
+                        )
+                    )
+                print('docs[0]: ', docs[0])    
+                print('docs size: ', len(docs))
+
+                contexts = []
+                for doc in docs:
+                    contexts.append(doc.page_content)
+                print('contexts: ', contexts)
+
+                msg = get_summary(llm, contexts)
+                
             else:
                 msg = "uploaded file: "+object
                                 
