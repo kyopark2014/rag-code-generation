@@ -36,13 +36,13 @@ chmod a+rx resize.sh && ./resize.sh 80
 4) 소스를 다운로드합니다.
 
 ```java
-git clone https://github.com/kyopark2014/rag-enhanced-searching
+git clone https://github.com/kyopark2014/rag-code-generation
 ```
 
 5) cdk 폴더로 이동하여 필요한 라이브러리를 설치합니다.
 
 ```java
-cd rag-enhanced-searching/cdk-rag-enhanced-searching/ && npm install
+cd rag-code-generation/cdk-code-generation/ && npm install
 ```
 
 6) CDK 사용을 위해 Boostraping을 수행합니다.
@@ -67,23 +67,14 @@ cdk deploy --all
 
 설치가 완료되면 아래와 같은 Output이 나옵니다. 
 
-![noname](https://github.com/kyopark2014/rag-enhanced-searching/assets/52392004/bd032613-f546-48f0-8217-67e87d23789c)
+![noname](https://github.com/kyopark2014/rag-code-generation/assets/52392004/bd032613-f546-48f0-8217-67e87d23789c)
 
 8) HTMl 파일을 S3에 복사합니다.
 
 아래와 같이 Output의 HtmlUpdateCommend을 붙여넣기 합니다. 
 
-![noname](https://github.com/kyopark2014/rag-enhanced-searching/assets/52392004/307cb0a0-a09c-485c-a7a5-f65cef2c9eaf)
+![noname](https://github.com/kyopark2014/rag-code-generation/assets/52392004/307cb0a0-a09c-485c-a7a5-f65cef2c9eaf)
 
+9) Output의 WebUrlforragenhancedsearching 있는 URL을 복사하여 웹 브라우저로 접속합니다. User Id로 적당한 이름을 넣고, Conversation Type로는 "2. Question/Answering (RAG)"를 선택합니다.
 
-9) Google API Key Update하기
-
-[api_key](https://developers.google.com/custom-search/docs/paid_element?hl=ko#api_key)에서 [키 가져오기] - [Select or create project]를 선택하여 Google API Key를 가져옵니다. 만약 기존 키가 없다면 새로 생성합니다.
-
-[새 검색엔진 만들기](https://programmablesearchengine.google.com/controlpanel/create?hl=ko)에서 검색엔진을 설정합니다. 이때, 검색할 내용은 "전체 웹 검색"을 선택하여야 합니다.
-
-[Secret Console](https://ap-northeast-1.console.aws.amazon.com/secretsmanager/secret?name=googl_api_key&region=ap-northeast-1)에 접속하여 [Retrieve secret value]를 선택하여, google_api_key와 google_cse_id를 업데이트합니다.
-
-10) Output의 WebUrlforragenhancedsearching 있는 URL을 복사하여 웹 브라우저로 접속합니다. User Id로 적당한 이름을 넣고, Conversation Type로는 "2. Question/Answering (RAG)"를 선택합니다.
-
-![noname](https://github.com/kyopark2014/rag-enhanced-searching/assets/52392004/689445d3-d4a1-4b2e-9390-303b0404c99b)
+![noname](https://github.com/kyopark2014/rag-code-generation/assets/52392004/689445d3-d4a1-4b2e-9390-303b0404c99b)
