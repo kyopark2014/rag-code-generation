@@ -281,7 +281,7 @@ def load_code(file_type, s3_file_name):
     #print('length: ', len(new_contents))
 
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=3000,
+        chunk_size=50,
         chunk_overlap=0,
         #separators=["def ", "\n\n", "\n", ".", " ", ""],
         separators=["def "],
