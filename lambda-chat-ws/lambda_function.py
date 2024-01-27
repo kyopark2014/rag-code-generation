@@ -578,7 +578,7 @@ def get_reference(docs, path, doc_prefix):
         else:
             excerpt = str(doc['metadata']['excerpt']).replace('"'," ")
 
-        if doc['rag_type'] == 'opensearch':
+        if doc['rag_type'][:10] == 'opensearch':
             print(f'## Document(get_reference) {i+1}: {doc}')
                 
             page = ""
@@ -609,7 +609,7 @@ def retrieve_from_vectorstore(query, top_k, rag_type):
         #print('(opensearch score) relevant_documents: ', relevant_documents)
 
         for i, document in enumerate(relevant_documents):
-            print(f'## Document(retrieve_from_vectorstore) {i+1}: {document}')
+            print(f'## Document(opensearch-vector) {i+1}: {document}')
 
             name = document[0].metadata['name']
             print('metadata: ', document[0].metadata)
@@ -628,7 +628,7 @@ def retrieve_from_vectorstore(query, top_k, rag_type):
             if page:
                 print('page: ', page)
                 doc_info = {
-                    "rag_type": rag_type,
+                    "rag_type": 'opensearch-vector',
                     "confidence": confidence,
                     "metadata": {
                         "source": uri,
@@ -643,7 +643,7 @@ def retrieve_from_vectorstore(query, top_k, rag_type):
                 }
             else:
                 doc_info = {
-                    "rag_type": rag_type,
+                    "rag_type": 'opensearch-vector',
                     "confidence": confidence,
                     "metadata": {
                         "source": uri,
