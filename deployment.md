@@ -56,7 +56,7 @@ aws sts get-caller-identity --query Account --output text
 아래와 같이 bootstrap을 수행합니다. 여기서 [Account-id]는 상기 명령어로 확인한 12자리의 Account ID입니다. bootstrap 1회만 수행하면 되므로, 기존에 cdk를 사용하고 있었다면 bootstrap은 건너뛰어도 됩니다.
 
 ```java
-cdk bootstrap aws://[Account-id]/ap-northeast-1
+cdk bootstrap aws://[Account-id]/ap-northeast-2
 ```
 
 7) 인프라를 설치합니다.
@@ -69,12 +69,22 @@ cdk deploy --all
 
 ![noname](https://github.com/kyopark2014/rag-code-generation/assets/52392004/bd032613-f546-48f0-8217-67e87d23789c)
 
-8) HTMl 파일을 S3에 복사합니다.
+
+8) Nori Plug-in 설치합니다.
+
+[OpenSearch Console](https://ap-northeast-2.console.aws.amazon.com/aos/home?region=us-west-2#opensearch/domains)에서 "rag-code-generation"로 들어가서 [Packages] - [Associate package]을 선택한 후에, 아래와 같이 "analysis-nori"을 설치합니다. 
+
+![image](https://github.com/kyopark2014/korean-chatbot-using-amazon-bedrock/assets/52392004/b91c91a1-b13c-4f5d-bd58-1c8298b2f128)
+
+
+
+9) HTMl 파일을 S3에 복사합니다.
 
 아래와 같이 Output의 HtmlUpdateCommend을 붙여넣기 합니다. 
 
 ![noname](https://github.com/kyopark2014/rag-code-generation/assets/52392004/307cb0a0-a09c-485c-a7a5-f65cef2c9eaf)
 
-9) Output의 WebUrlforragenhancedsearching 있는 URL을 복사하여 웹 브라우저로 접속합니다. User Id로 적당한 이름을 넣고, Conversation Type로는 "2. Question/Answering (RAG)"를 선택합니다.
+
+10) Output의 WebUrlforragenhancedsearching 있는 URL을 복사하여 웹 브라우저로 접속합니다. User Id로 적당한 이름을 넣고, Conversation Type로는 "2. Question/Answering (RAG)"를 선택합니다.
 
 ![noname](https://github.com/kyopark2014/rag-code-generation/assets/52392004/689445d3-d4a1-4b2e-9390-303b0404c99b)
