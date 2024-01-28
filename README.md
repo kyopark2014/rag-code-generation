@@ -55,13 +55,13 @@ Context에 관련된 문서를 넣어서 아래와 같은 prompt를 이용하여
 
 더이상 인프라를 사용하지 않는 경우에 아래처럼 모든 리소스를 삭제할 수 있습니다. 
 
-1) [API Gateway Console](https://ap-northeast-1.console.aws.amazon.com/apigateway/main/apis?region=ap-northeast-1)로 접속하여 "api-chatbot-for-rag-chatbot-with-kendra", "api-rag-chatbot-with-kendra"을 삭제합니다.
+1) [API Gateway Console](https://ap-northeast-2.console.aws.amazon.com/apigateway/main/apis?region=ap-northeast-2)로 접속하여 "api-chatbot-for-rag-code-generation", "api-rag-code-generation"을 삭제합니다.
 
-2) [Cloud9 Console](https://ap-northeast-1.console.aws.amazon.com/cloud9control/home?region=ap-northeast-1#/)에 접속하여 아래의 명령어로 전체 삭제를 합니다.
+2) [Cloud9 Console](https://ap-northeast-2.console.aws.amazon.com/cloud9control/home?region=ap-northeast-2#/)에 접속하여 아래의 명령어로 전체 삭제를 합니다.
 
 
 ```text
-cd ~/environment/rag-chatbot-using-bedrock-claude-and-kendra/cdk-rag-chatbot-with-kendra/ && cdk destroy --all
+cd ~/environment/rag-code-generation/cdk-rag-code-generation/ && cdk destroy --all
 ```
 
 
@@ -70,7 +70,7 @@ cd ~/environment/rag-chatbot-using-bedrock-claude-and-kendra/cdk-rag-chatbot-wit
 
 ## 결론
 
-
+RAG를 이용하여 Code 생성하였습니다.
 
 
 ## 실습 코드 및 도움이 되는 참조 블로그
