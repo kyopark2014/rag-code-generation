@@ -289,56 +289,25 @@ def retrieve_from_vectorstore(query, top_k, rag_type):
 
         for i, document in enumerate(relevant_documents):
             name = document[0].metadata['name']
-
-            page = ""
-            if "page" in document[0].metadata:
-                page = document[0].metadata['page']
-            uri = ""
-            if "uri" in document[0].metadata:
-                uri = document[0].metadata['uri']
-
+            uri = document[0].metadata['uri']
             excerpt = document[0].page_content
             confidence = str(document[1])
-            assessed_score = str(document[1])
-            
-            code = ""
-            if "code" in document[0].metadata:
-                code = document[0].metadata['code']
-                
-            function_name = ""
-            if "function_name" in document[0].metadata:
-                function_name = document[0].metadata['function_name']
+            assessed_score = str(document[1])            
+            code = document[0].metadata['code']                
+            function_name = document[0].metadata['function_name']
 
-            if page:
-                print('page: ', page)
-                doc_info = {
-                    "rag_type": 'opensearch-vector',
-                    "confidence": confidence,
-                    "metadata": {
-                        "source": uri,
-                        "title": name,
-                        "excerpt": excerpt,
-                        "document_attributes": {
-                            "_excerpt_page_number": page
-                        },
-                        "code": code,
-                        "function_name": function_name
-                    },
-                    "assessed_score": assessed_score,
-                }
-            else:
-                doc_info = {
-                    "rag_type": 'opensearch-vector',
-                    "confidence": confidence,
-                    "metadata": {
-                        "source": uri,
-                        "title": name,
-                        "excerpt": excerpt,
-                        "code": code,
-                        "function_name": function_name
-                    },
-                    "assessed_score": assessed_score,
-                }
+            doc_info = {
+                "rag_type": 'opensearch-vector',
+                "confidence": confidence,
+                "metadata": {
+                    "source": uri,
+                    "title": name,
+                    "excerpt": excerpt,
+                    "code": code,
+                    "function_name": function_name
+                },
+                "assessed_score": assessed_score,
+            }
             relevant_docs.append(doc_info)
     
         # Lexical search (keyword)
@@ -374,62 +343,25 @@ def retrieve_from_vectorstore(query, top_k, rag_type):
                     break
                 
                 excerpt = document['_source']['text']
-                print(f'## Document(opensearch-keyward) {i+1}: {excerpt}')
-
                 name = document['_source']['metadata']['name']
-                print('name: ', name)
-
-                page = ""
-                if "page" in document['_source']['metadata']:
-                    page = document['_source']['metadata']['page']
-                
-                uri = ""
-                if "uri" in document['_source']['metadata']:
-                    uri = document['_source']['metadata']['uri']
-                print('uri: ', uri)
-
+                uri = document['_source']['metadata']['uri']
                 confidence = str(document['_score'])
-                assessed_score = ""
-                
-                code = ""
-                if "code" in document['_source']['metadata']:
-                    code = document['_source']['metadata']['code']
-                
-                function_name = ""
-                if "function_name" in document['_source']['metadata']:
-                    function_name = document['_source']['metadata']['function_name']
+                assessed_score = ""                
+                code = document['_source']['metadata']['code']                
+                function_name = document['_source']['metadata']['function_name']
 
-                if page:
-                    print('page: ', page)
-                    doc_info = {
-                        "rag_type": 'opensearch-keyward',
-                        "confidence": confidence,
-                        "metadata": {
-                            "source": uri,
-                            "title": name,
-                            "excerpt": excerpt,
-                            "document_attributes": {
-                                "_excerpt_page_number": page
-                            },
-                            "code": code,
-                            "function_name": function_name
-                        },
-                        "assessed_score": assessed_score,
-                    }
-                else: 
-                    doc_info = {
-                        "rag_type": 'opensearch-keyward',
-                        "confidence": confidence,
-                        "metadata": {
-                            "source": uri,
-                            "title": name,
-                            "excerpt": excerpt,
-                            "code": code,
-                            "function_name": function_name
-                        },
-                        "assessed_score": assessed_score,
-                    }
-                
+                doc_info = {
+                    "rag_type": 'opensearch-keyward',
+                    "confidence": confidence,
+                    "metadata": {
+                        "source": uri,
+                        "title": name,
+                        "excerpt": excerpt,
+                        "code": code,
+                        "function_name": function_name
+                    },
+                    "assessed_score": assessed_score,
+                }                
                 if checkDupulication(relevant_docs, doc_info) == False:
                     relevant_docs.append(doc_info)
                     
