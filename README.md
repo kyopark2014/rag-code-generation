@@ -17,6 +17,14 @@
 
 Sequence Diagram은 아래와 같습니다.
 
+단계 1: 사용자가 파일을 업로드하려고 하면 [Presigned URL](https://docs.aws.amazon.com/ko_kr/AmazonS3/latest/userguide/PresignedUrlUploadObject.html)을 이용하여 [Amazon S3](https://docs.aws.amazon.com/AmazonS3/latest/userguide/Welcome.html)에 저장합니다. 
+단계 2: 파일 업로드 후에 type이 Document인 메시지를 보내면, S3에서 파일은 Load한 후에 함수 단위로 Chunking을 수행합니다. 
+단계 3: 각 Function의 기능을 설명할 수 있도록 LLM을 이용하여 Code를 요약합니다. 이때, 요약하는 속도를 향상시키기 위하여 아래처럼 4개 Region의 LLM을 활용하여 요약 작업을 수행합니다.
+단계 4: 요약이 완료되면 각 Function을 요약과 원본 코드, 파일 경로를 메타데이터로 가지는 [Document](https://opensearch.org/docs/latest/)를 만들어서 OpenSearch에 저장하고, 채팅창에는 요약 결과를 보여줍니다.
+단계 5: 사용자가 Code를 생성하기 위하여 질문(Query)을 입력하면, OpenSearch로 Vector/Lexical Search를 수행하여 관련된 Code들을 수집합니다.
+단계 6: 관련된 Code들은 Priority Search를 이용하여 관련도가 높은 순서로 정렬한 다음에 일정 수준의 관련도를 가지는 관련 Code로 LLM에서 활용할 수 있는 Context를 만듭니다.
+단계 7: 관련된 Code의 조합인 Context와 사용자의 질문(Query)을 LLM에 전달하여 Code를 생성합니다.
+
 ![image](https://github.com/kyopark2014/rag-code-generation/assets/52392004/2cf62fbc-e8dd-4704-993f-864f9ee3dbc1)
 
 ## 주요 시스템 구성
