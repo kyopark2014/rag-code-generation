@@ -413,6 +413,9 @@ def summarize_process_for_relevent_code(conn, llm, code, object, bedrock_region)
                             
             summary = summary_of_code(llm, code)
             print(f"summary ({bedrock_region}): {summary}")
+            
+            if summary[:summary.rfind(':')]==function_name:
+                summary = summary[summary.rfind('\n')+1:len(summary)]
 
             doc = Document(
                 page_content=summary,
@@ -1049,9 +1052,6 @@ def getResponse(connectionId, jsonBody):
                                             
                             summary = summary_of_code(llm, code)                        
                                 
-                            #name = name[name.rfind('/')+1:len(name)]
-                            #print('first line of summary: ', summary[:summary.rfind(':')])
-                            #print('function name: ', function_name)
                             if summary[:summary.rfind(':')]==function_name:
                                 summary = summary[summary.rfind('\n')+1:len(summary)]
                                                                             
