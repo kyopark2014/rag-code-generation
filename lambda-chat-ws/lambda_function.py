@@ -405,7 +405,8 @@ def summarize_process_for_relevent_code(conn, llm, code, object, bedrock_region)
         start = code.find('\ndef ')
         end = code.find(':')                    
         # print(f'start: {start}, end: {end}')
-                        
+                    
+        doc = ""    
         if start != -1:      
             function_name = code[start+1:end]
             # print('function_name: ', function_name)
@@ -422,12 +423,13 @@ def summarize_process_for_relevent_code(conn, llm, code, object, bedrock_region)
                     'function_name': function_name
                 }
             )            
-            conn.send(doc)    
+                        
     except Exception:
         err_msg = traceback.format_exc()
         print('error message: ', err_msg)       
-        # raise Exception (f"Not able to summarize: {doc}")   
-        
+        # raise Exception (f"Not able to summarize: {doc}")               
+    
+    conn.send(doc)    
     conn.close()
 
 def summarize_relevant_codes_using_parallel_processing(codes, object):
@@ -454,7 +456,9 @@ def summarize_relevant_codes_using_parallel_processing(codes, object):
             
     for parent_conn in parent_connections:
         doc = parent_conn.recv()
-        relevant_codes.append(doc)    
+        
+        if doc:
+            relevant_codes.append(doc)    
 
     for process in processes:
         process.join()
