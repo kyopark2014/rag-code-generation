@@ -29,7 +29,7 @@ let opensearch_url = "";
 const numberOfRelevantDocs = '4';
 const allowDualSearching='true'
 const enableNoriPlugin = 'true';
-const enableParallelSummay = 'false';
+const enableParallelSummay = 'true';
 
 const claude_instance = JSON.stringify([
   {
