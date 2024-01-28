@@ -499,7 +499,7 @@ cd ~/environment/rag-code-generation/cdk-rag-code-generation/ && cdk destroy --a
 
 ## 결론
 
-RAG를 이용하여 Code 생성하였습니다.
+RAG를 이용하여 코드를 생성하면 Fine Tuning 대비 비용뿐 아니라 업데이트된 소스 코드를 참조하여 새로운 코드를 생성할 수 있습니다. 여기에서는 소스 코드를 함수(Function) 단위로 요약하고, OpenSearch에 문서를 등록하여 관련된 코드를 검색할 수 있었습니다. 검색의 정확도를 높이기 위하여 Vector 검색뿐 아니라 Lexical 검색을 이용하였고, Faiss를 이용하여 관련도 기준으로 정렬하여 RAG의 정확도를 향상 시켰습니다. 관련된 코드들로 Context를 생성하여 Prompt를 이용하여 질문(Query)에 맞는 코드를 생성할 수 있었습니다. RAG를 활용하면 기업의 자신인 소스 파일을 이용하여 손쉽게 코드를 생성할 수 있으므로 기업의 활동에 필요한 코드를 쉽고 편리하게 검색하여 활용할 수 있습니다. 
 
 
 ## 실습 코드 및 도움이 되는 참조 블로그
