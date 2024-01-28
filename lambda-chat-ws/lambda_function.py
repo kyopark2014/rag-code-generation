@@ -414,8 +414,8 @@ def summarize_process_for_relevent_code(conn, llm, code, object, bedrock_region)
             summary = summary_of_code(llm, code)
             print(f"summary ({bedrock_region}): {summary}")
             
-            print('first line summary: ', summary[:len(function_name)])
-            print('function name: ', function_name)            
+            #print('first line summary: ', summary[:len(function_name)])
+            #print('function name: ', function_name)            
             if summary[:len(function_name)]==function_name:
                 summary = summary[summary.find('\n')+1:len(summary)]
 
