@@ -1058,7 +1058,7 @@ def getResponse(connectionId, jsonBody):
                             print('first line of summary: ', summary[:summary.rfind(':')-1])
                             print('function name: ', function_name)
                             if summary[:summary.rfind(':')-1]==function_name:
-                                summary = summary[len(function_name)+2:len(summary)]
+                                summary = summary[summary.rfind(':')+1:len(summary)]
                                                                             
                             docs.append(
                                 Document(
