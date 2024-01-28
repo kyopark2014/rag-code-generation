@@ -1,12 +1,12 @@
 # RAG를 이용한 Code Generation
 
-[Amazon CodeWhisperer](https://docs.aws.amazon.com/codewhisperer/latest/userguide/what-is-cwspr.html)와 같은 Machine Learning 기반의 코드 생성 툴은 기업의 생산성 향상에 도움을 주고 있습니다. 하지만, 기업의 자산인 소스 코드들을 이러한 툴과 함께 활용하기 위하여 [Fine Tunining](https://docs.aws.amazon.com/ko_kr/sagemaker/latest/dg/jumpstart-fine-tune.html)을 하려면 비용도 고려해야 하고, 소스 코드들이 계속 업데이트 될 경우에 Fine Tuning 주기에 대한 부담이 있을 수 있습니다. 반면에 [RAG (Retrieval Augmented Generation)](https://docs.aws.amazon.com/ko_kr/sagemaker/latest/dg/jumpstart-foundation-models-customize-rag.html)은 [Amazon OpenSearch](https://docs.aws.amazon.com/ko_kr/opensearch-service/latest/developerguide/what-is.html)과 같은 검색 엔진을 활용하여 Fine Tunining과 유사한 기능을 제공할 수 있고, 일반적으로 업데이트나 비용면에서 Fine tuning 대비 유용합니다. 
+[Amazon CodeWhisperer](https://docs.aws.amazon.com/codewhisperer/latest/userguide/what-is-cwspr.html)와 같은 Machine Learning 기반의 코드 생성 툴은 기업의 생산성 향상에 도움을 주고 있습니다. 하지만, 기업의 자산인 소스 코드들을 이러한 툴과 함께 활용하기 위하여 [Fine Tunining](https://docs.aws.amazon.com/ko_kr/sagemaker/latest/dg/jumpstart-fine-tune.html)을 하려면 비용도 고려해야 하고, 소스 코드들이 계속 업데이트 될 경우에 Fine Tuning 주기에 대한 부담이 있을 수 있습니다. 반면에 [RAG (Retrieval Augmented Generation)](https://docs.aws.amazon.com/ko_kr/sagemaker/latest/dg/jumpstart-foundation-models-customize-rag.html)은 [Amazon OpenSearch](https://docs.aws.amazon.com/ko_kr/opensearch-service/latest/developerguide/what-is.html)와 같은 검색 엔진을 활용하여 Fine Tuning과 유사한 기능을 제공할 수 있고, 일반적으로 업데이트나 비용면에서 Fine tuning 대비 유용합니다. 
 
 본 게시글에서는 [LLM(Large Language Models)](https://aws.amazon.com/ko/what-is/large-language-model/)과 OpenSearch를 이용하여 RAG를 구성하고, 한국어로 된 질문(Query)으로 코드를 검색하고 이때 얻어진 관련된 코드들(Relevant Codes)을 이용하여 질문(Query)에 맞는 코드를 생성합니다. 질문과 관련된 코드를 찾기 위해서, LLM을 이용하여 함수(Function)에 대한 요약을 수행하고, 얻어진 요약과 원본 코드를 RAG에 등록하여 사용자의 질문이 있을 때에 관련된 코드들(Relevant Codes)를 검색하여 활용합니다. 코드에는 여러 개의 함수가 사용될 수 있으므로 코드 요약시에 걸리는 시간 지연이 증가할 수 있고, 여러 파일을 On-Demend에서 등록할 경우에 [요청과 Token 수의 제한](https://docs.aws.amazon.com/bedrock/latest/userguide/quotas.html)이 있으므로 [Multi-Region LLM](https://aws.amazon.com/ko/blogs/tech/multi-rag-and-multi-region-llm-for-chatbot/)을 활용합니다.
 
 ## Architecture 개요
 
-전체적인 Architecture는 아래와 같습니다. 사용자는 [WebSocket 방식의 API Gateway](https://aws.amazon.com/ko/blogs/tech/stream-chatbot-for-amazon-bedrock/)를 이용하여 메시지를 주고 받습니다. [서버리스(Serverless)](https://docs.aws.amazon.com/ko_kr/serverless-application-model/latest/developerguide/what-is-concepts.html)인 [AWS Lambda](https://docs.aws.amazon.com/lambda/latest/dg/welcome.html)를 이용하여 RAG의 Knowledge Store로 부터 관련된 코드를 검색하고, [Prompt](https://docs.aws.amazon.com/ko_kr/bedrock/latest/userguide/what-is-a-prompt.html)를 이용해 질문(Query)에 맞는 코드를 생성합니다. Amazon OpenSearch는 빠르고 성능이 좋은 검색 엔진으로서, 관련된 코드를 빠르고 효과적으로 검색할 수 있습니다. 여기서는 검색의 정확도를 높이기 위해 OpenSearch의 [Vector 검색](https://opensearch.org/platform/search/vector-database.html)과 함께 [한국어를 지원하는 Nori 분석기](https://aws.amazon.com/ko/blogs/tech/amazon-opensearch-service-korean-nori-plugin-for-analysis/)를 이용하여 Lexical 검색을 수행합니다. 검색된 결과들은 관련도에 따라 정렬할 필요가 있으므로 [Faiss의 similarity search](https://aws.amazon.com/ko/blogs/tech/rag-enhanced-searching/)를 이용하여 Priority Search를 수행합니다. 여기서 사용하는 Faiss는 Lambda의 process와 memory를 공유하므로 별도로 비용이 발생하지 않으며 정량적인 관련도를 얻을 수 있습니다. 잘문과 관련된 코드를 한국어로 검색하기 위하여 RAG에 저장되는 소스 코드들은 함수(Function) 단위로 Chunking 된 후에 LLM을 이용하여 요약(Summarization)됩니다. 하나의 소스 파일은 여러개의 함수들로 구성될 수 있으므로,  [Multi-Region LLM](https://aws.amazon.com/ko/blogs/tech/multi-rag-and-multi-region-llm-for-chatbot/)을 이용하여 요약에 필요한 지연 속도를 개선합니다. 또한, 인프라를 배포하고 관리하는 것은 [AWS CDK](https://docs.aws.amazon.com/cdk/v2/guide/home.html)을 이용합니다.
+전체적인 Architecture는 아래와 같습니다. 사용자는 [WebSocket 방식의 API Gateway](https://aws.amazon.com/ko/blogs/tech/stream-chatbot-for-amazon-bedrock/)를 이용하여 메시지를 주고 받습니다. [서버리스(Serverless)](https://docs.aws.amazon.com/ko_kr/serverless-application-model/latest/developerguide/what-is-concepts.html)인 [AWS Lambda](https://docs.aws.amazon.com/lambda/latest/dg/welcome.html)를 이용하여 RAG의 Knowledge Store로 부터 관련된 코드를 검색하고, [Prompt](https://docs.aws.amazon.com/ko_kr/bedrock/latest/userguide/what-is-a-prompt.html)를 이용해 질문(Query)에 맞는 코드를 생성합니다. Amazon OpenSearch는 빠르고 성능이 좋은 검색 엔진으로서, 관련된 코드를 빠르고 효과적으로 검색할 수 있습니다. 여기서는 검색의 정확도를 높이기 위해 OpenSearch의 [Vector 검색](https://opensearch.org/platform/search/vector-database.html)과 함께 [한국어를 지원하는 Nori 분석기](https://aws.amazon.com/ko/blogs/tech/amazon-opensearch-service-korean-nori-plugin-for-analysis/)를 이용하여 Lexical 검색을 수행합니다. 검색된 결과들은 관련도에 따라 정렬할 필요가 있으므로 [Faiss의 similarity search](https://aws.amazon.com/ko/blogs/tech/rag-enhanced-searching/)를 이용하여 Priority Search를 수행합니다. 여기서 사용하는 Faiss는 Lambda의 process와 memory를 공유하므로 별도로 비용이 발생하지 않으며 정량적인 관련도를 얻을 수 있습니다. 잘문과 관련된 코드를 한국어로 검색하기 위하여 RAG에 저장되는 소스 코드들은 함수(Function) 단위로 Chunking 된 후에 LLM을 이용하여 요약(Summarization)됩니다. 하나의 소스 파일은 여러 개의 함수들로 구성될 수 있으므로,  [Multi-Region LLM](https://aws.amazon.com/ko/blogs/tech/multi-rag-and-multi-region-llm-for-chatbot/)을 이용하여 요약에 필요한 지연 속도를 개선합니다. 또한, 인프라를 배포하고 관리하는 것은 [AWS CDK](https://docs.aws.amazon.com/cdk/v2/guide/home.html)을 이용합니다.
 
 <img src="https://github.com/kyopark2014/rag-code-generation/assets/52392004/3f5e891c-3cbf-44d5-b337-82229e0a10f9" width="900">
 
@@ -28,11 +28,12 @@
 
 ![image](https://github.com/kyopark2014/rag-code-generation/assets/52392004/2cf62fbc-e8dd-4704-993f-864f9ee3dbc1)
 
+
 ## 주요 시스템 구성
 
 ### 코드 요약
 
-하나의 프로그램은 여러개의 Function을 가질 수 있습니다. 여기에서는 Function 단위로 코드를 요약하여 RAG에서 검색하여 활용하고자 합니다. S3로 부터 파일을 읽어 들인 후, Function 단위로 분리하기 위하여 Chunking을 수행합니다.
+본 게시글에서는 함수 단위로 코드를 요약하여 RAG에서 활용하고자 합니다. 하나의 소스 파일은 여러 개의 함수(Function)을 가질 수 있으므로, S3로 부터 소스 파일을 읽어 들인 후에 함수(Function) 단위로 분리하기 위하여 Chunking을 수행합니다. 여기서는 chunk_size를 50으로 하고, seperator로 "\ndef "로 설정하였으므로, 50자 이상의 함수로 분리 할 수 있습니다.
 
 ```python
 def load_code(file_type, s3_file_name):
@@ -56,8 +57,8 @@ def load_code(file_type, s3_file_name):
 
 ### 함수 별로 코드 요약
 
- 함수별로 Chunk 되었으므로 각 함수에 대한 요약을 수행합니다. 수행속도를 위해 Multi-LLM과 Multi Thread를 활용합니다.
-
+ 함수별로 Chunk 되었으므로 LLM을 이용하여 요약을 수행합니다. 이때 수행속도를 위해 Multi-LLM과 Multi Thread를 활용합니다. 여기서는 여러 리전의 LLM을 활용하므로 LLM profile에 여러 리전에 대한 정보와 모델을 설정합니다. Chunk된 문서는 파일 이름(name), 다운로드 경로(uri), 원본 코드(code)와 각 함수의 이름(function_name)을 metadata로 가지고 있습니다. 
+ 
 ```python
  def summarize_relevant_codes_using_parallel_processing(codes, object):
     selected_LLM = 0
@@ -153,12 +154,9 @@ def summary_of_code(llm, code):
     return summary
 ```
 
-
-
-
 ### Code 요약을 OpenSearch에 등록
 
-RAG로 OpenSearch를 이용합니다. 각 Chunk는 함수 1개씩을 의미하므로 코드 요약과 원본 코드를 아래와 같이 metadata에 저장합니다.
+RAG로 OpenSearch를 이용합니다. [2023년 10월에 한국어, 일본어, 중국어에 대한 새로운 언어 분석기 플러그인이 OpenSearch에 추가](https://aws.amazon.com/ko/about-aws/whats-new/2023/10/amazon-opensearch-four-language-analyzers/) 되었습니다. 이제 OpenSearch에서 한국어를 Nori 분석기를 이용하여 Lexical 검색을 이용하고 이를 이용해 RAG를 구현할 수 있습니다. 여기서는 OpenSearch에서 [Nori 플러그인을 이용한 한국어 분석](https://aws.amazon.com/ko/blogs/tech/amazon-opensearch-service-korean-nori-plugin-for-analysis/) 블로그와 [01_2_load_json_kr_docs_opensearch.ipynb](https://github.com/aws-samples/aws-ai-ml-workshop-kr/blob/master/genai/aws-gen-ai-kr/20_applications/02_qa_chatbot/01_preprocess_docs/01_2_load_json_kr_docs_opensearch.ipynb)를 참조하였습니다.
 
 ```python
 if file_type == 'py':
@@ -171,11 +169,7 @@ if file_type == 'py':
     documentId = documentId.lower() 
 
     store_document_for_opensearch_with_nori(bedrock_embeddings, docs, documentId)
-```
 
-[2023년 10월에 한국어, 일본어, 중국어에 대한 새로운 언어 분석기 플러그인이 OpenSearch에 추가](https://aws.amazon.com/ko/about-aws/whats-new/2023/10/amazon-opensearch-four-language-analyzers/) 되었습니다. 이제 OpenSearch에서 한국어를 Nori 분석기를 이용하여 Lexical 검색을 이용하고 이를 이용해 RAG를 구현할 수 있습니다. 여기서는 OpenSearch에서 [Nori 플러그인을 이용한 한국어 분석](https://aws.amazon.com/ko/blogs/tech/amazon-opensearch-service-korean-nori-plugin-for-analysis/) 블로그와 [01_2_load_json_kr_docs_opensearch.ipynb](https://github.com/aws-samples/aws-ai-ml-workshop-kr/blob/master/genai/aws-gen-ai-kr/20_applications/02_qa_chatbot/01_preprocess_docs/01_2_load_json_kr_docs_opensearch.ipynb)를 참조하였습니다.
-
-```python
 def store_document_for_opensearch_with_nori(bedrock_embeddings, docs, documentId):
     index_name = get_index_name(documentId)
     
@@ -267,13 +261,11 @@ def store_document_for_opensearch_with_nori(bedrock_embeddings, docs, documentId
 
 ### RAG의 Knowledge Store를 이용하여 관련 Code 검색
 
-사용자가 원하는 코드를 검색하면 RAG로 조회합니다. 이때, OpenSearch로 vector와 lexical search를 하여 두개의 결과를 병합하고, priority search를 통해 관련된 코드의 우선 순위를 조정합니다.
-
-본 게시글에서는 관련된 코드를 검색할때 Zero shot을 이용하므로, 와 같이 구현하려는 코드에 대한 명확한 지시를 내려야 좀 더 정확한 결과를 얻을 수 있습니다. 만약, 대화이력을 고려하여 코드를 생성하고자 한다면, [한영 동시 검색 및 인터넷 검색을 활용하여 RAG를 편리하게 활용하기](https://aws.amazon.com/ko/blogs/tech/rag-enhanced-searching/)와 같이 Prompt를 이용하여 새로운 질문(Revised Question)을 생성할 수 있습니다. 
+사용자가 질문(Query)를 입력하면, RAG로 관련된 코드를 조회합니다. 이때, OpenSearch로 vector와 lexical search를 하여 두개의 결과를 병합하고, priority search를 통해 관련된 코드의 우선 순위를 조정합니다. 본 게시글에서는 관련된 코드를 검색할때 Zero shot을 이용하므로, 와 같이 구현하려는 코드에 대한 명확한 지시를 내려야 좀 더 정확한 결과를 얻을 수 있습니다. 만약, 대화이력을 고려하여 코드를 생성하고자 한다면, [한영 동시 검색 및 인터넷 검색을 활용하여 RAG를 편리하게 활용하기](https://aws.amazon.com/ko/blogs/tech/rag-enhanced-searching/)와 같이 Prompt를 이용하여 새로운 질문(Revised Question)을 생성할 수 있습니다. 
 
 ```python
 def retrieve_from_vectorstore(query, top_k, rag_type):
-    relevant_docs = []
+    relevant_codes = []
 
     # Vector Search
     if rag_type == 'opensearch':
@@ -303,7 +295,7 @@ def retrieve_from_vectorstore(query, top_k, rag_type):
                 },
                 "assessed_score": assessed_score,
             }
-            relevant_docs.append(doc_info)
+            relevant_codes.append(doc_info)
     
         # Lexical search (keyword)
         min_match = 0
@@ -357,10 +349,10 @@ def retrieve_from_vectorstore(query, top_k, rag_type):
                     },
                     "assessed_score": assessed_score,
                 }                
-                if checkDupulication(relevant_docs, doc_info) == False:
-                    relevant_docs.append(doc_info)
+                if checkDupulication(relevant_codes, doc_info) == False:
+                    relevant_codes.append(doc_info)
                     
-    return relevant_docs
+    return relevant_codes
 ```
 
 
@@ -369,14 +361,15 @@ def retrieve_from_vectorstore(query, top_k, rag_type):
 Context에 관련된 문서를 넣어서 아래와 같은 prompt를 이용하여 질문에 맞는 코드를 생성합니다.
 
 ```python
-selected_relevant_docs = []
-if len(relevant_docs) >= 1:
-    selected_relevant_docs = priority_search(text, relevant_docs, bedrock_embeddings)
+selected_relevant_codes = []
+if len(relevant_codes) >= 1:
+    selected_relevant_codes = priority_search(text, relevant_codes, bedrock_embeddings)
+
 relevant_code = ""
-for document in selected_relevant_docs:
-if document['metadata']['code']:
-    code = document['metadata']['code']
-    relevant_code = relevant_code + code + "\n\n"
+for document in selected_relevant_codes:
+    if document['metadata']['code']:
+        code = document['metadata']['code']
+        relevant_code = relevant_code + code + "\n\n"
 
 try:
     isTyping(connectionId, requestId)
@@ -386,12 +379,13 @@ except Exception:
     err_msg = traceback.format_exc()
     print('error message: ', err_msg)
 ```
+
+Faiss의 Similarity Search를 이용하여 관련도 기준으로 정렬합니다. 관련된 문서
        
 ```python
-def priority_search(query, relevant_docs, bedrock_embeddings):
+def priority_search(query, relevant_codes, bedrock_embeddings):
     excerpts = []
-    for i, doc in enumerate(relevant_docs):
-        # print('doc: ', doc)
+    for i, doc in enumerate(relevant_codes):
         content = doc['metadata']['excerpt']        
         excerpts.append(
             Document(
@@ -402,7 +396,6 @@ def priority_search(query, relevant_docs, bedrock_embeddings):
                 }
             )
         )  
-    # print('excerpts: ', excerpts)
 
     embeddings = bedrock_embeddings
     vectorstore_confidence = FAISS.from_documents(
@@ -423,12 +416,10 @@ def priority_search(query, relevant_docs, bedrock_embeddings):
         assessed_score = document[1]
         print(f"{order} {name}: {assessed_score}")
 
-        relevant_docs[order]['assessed_score'] = int(assessed_score)
+        relevant_codes[order]['assessed_score'] = int(assessed_score)
 
         if assessed_score < 400:
-            docs.append(relevant_docs[order])    
-    # print('selected docs: ', docs)
-
+            docs.append(relevant_codes[order])    
     return docs
 ```
 
