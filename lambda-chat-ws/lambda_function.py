@@ -4,8 +4,6 @@ import os
 import time
 import datetime
 from io import BytesIO
-import PyPDF2
-import csv
 import traceback
 import re
 from urllib import parse
