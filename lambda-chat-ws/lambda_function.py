@@ -1050,9 +1050,15 @@ def getResponse(connectionId, jsonBody):
                             summary = summary_of_code(llm, code)                        
                                 
                             # print('summary[:len(function_name)]: ', summary[:len(function_name)])
-                            if summary[:len(function_name)]==function_name:
-                                summary = summary[len(function_name)+2:len(summary)]
+                            #if summary[:len(function_name)]==function_name:
+                            #    summary = summary[len(function_name)+2:len(summary)]
                                 # print('modified summary: ', summary)
+                                
+                            #name = name[name.rfind('/')+1:len(name)]
+                            print('first line of summary: ', summary[:summary.rfind(':')-1])
+                            print('function name: ', function_name)
+                            if summary[:summary.rfind(':')-1]==function_name:
+                                summary = summary[len(function_name)+2:len(summary)]
                                                                             
                             docs.append(
                                 Document(
