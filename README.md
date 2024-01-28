@@ -158,6 +158,26 @@ def summary_of_code(llm, code):
     return summary
 ```
 
+
+
+
+### Code 요약을 OpenSearch에 등록
+
+RAG로 OpenSearch를 이용합니다. 각 Chunk는 함수 1개씩을 의미하므로 코드 요약과 원본 코드를 아래와 같이 metadata에 저장합니다.
+
+```python
+if file_type == 'py':
+    category = file_type
+    key = doc_prefix+object
+    documentId = category + "-" + key
+    documentId = documentId.replace(' ', '_') 
+    documentId = documentId.replace(',', '_') 
+    documentId = documentId.replace('/', '_') 
+    documentId = documentId.lower() 
+
+    store_document_for_opensearch_with_nori(bedrock_embeddings, docs, documentId)
+```
+
 [2023년 10월에 한국어, 일본어, 중국어에 대한 새로운 언어 분석기 플러그인이 OpenSearch에 추가](https://aws.amazon.com/ko/about-aws/whats-new/2023/10/amazon-opensearch-four-language-analyzers/) 되었습니다. 이제 OpenSearch에서 한국어를 Nori 분석기를 이용하여 Lexical 검색을 이용하고 이를 이용해 RAG를 구현할 수 있습니다. 여기서는 OpenSearch에서 [Nori 플러그인을 이용한 한국어 분석](https://aws.amazon.com/ko/blogs/tech/amazon-opensearch-service-korean-nori-plugin-for-analysis/) 블로그와 [01_2_load_json_kr_docs_opensearch.ipynb](https://github.com/aws-samples/aws-ai-ml-workshop-kr/blob/master/genai/aws-gen-ai-kr/20_applications/02_qa_chatbot/01_preprocess_docs/01_2_load_json_kr_docs_opensearch.ipynb)를 참조하였습니다.
 
 ```python
@@ -250,38 +270,274 @@ def store_document_for_opensearch_with_nori(bedrock_embeddings, docs, documentId
         print('error message: ', err_msg)                
 ```
 
-
-
-### Code 요약을 OpenSearch에 등록
-
-RAG로 OpenSearch를 이용합니다. 각 Chunk는 함수 1개씩을 의미하므로 코드 요약과 원본 코드를 아래와 같이 metadata에 저장합니다.
-
-```python
-if file_type == 'py':
-    category = file_type
-    key = doc_prefix+object
-    documentId = category + "-" + key
-    documentId = documentId.replace(' ', '_') 
-    documentId = documentId.replace(',', '_') 
-    documentId = documentId.replace('/', '_') 
-    documentId = documentId.lower() 
-
-    store_document_for_opensearch_with_nori(bedrock_embeddings, docs, documentId)
-```
-
 ### RAG의 Knowledge Store를 이용하여 관련 Code 검색
 
 사용자가 원하는 코드를 검색하면 RAG로 조회합니다. 이때, OpenSearch로 vector와 lexical search를 하여 두개의 결과를 병합하고, priority search를 통해 관련된 코드의 우선 순위를 조정합니다.
 
 본 게시글에서는 관련된 코드를 검색할때 Zero shot을 이용하므로, 와 같이 구현하려는 Code에 대한 명확한 지시를 내려야 좀 더 정확한 결과를 얻을 수 있습니다. 만약, 대화이력을 고려하여 코드를 생성하고자 한다면, [한영 동시 검색 및 인터넷 검색을 활용하여 RAG를 편리하게 활용하기](https://aws.amazon.com/ko/blogs/tech/rag-enhanced-searching/)와 같이 Prompt를 이용하여 새로운 질문(Revised Question)을 생성할 수 있습니다. 
 
+```python
+def retrieve_from_vectorstore(query, top_k, rag_type):
+    relevant_docs = []
+
+    # Vector Search
+    if rag_type == 'opensearch':
+        relevant_documents = vectorstore_opensearch.similarity_search_with_score(
+            query = query,
+            k = top_k,
+        )
+
+        for i, document in enumerate(relevant_documents):
+            name = document[0].metadata['name']
+
+            page = ""
+            if "page" in document[0].metadata:
+                page = document[0].metadata['page']
+            uri = ""
+            if "uri" in document[0].metadata:
+                uri = document[0].metadata['uri']
+
+            excerpt = document[0].page_content
+            confidence = str(document[1])
+            assessed_score = str(document[1])
+            
+            code = ""
+            if "code" in document[0].metadata:
+                code = document[0].metadata['code']
+                
+            function_name = ""
+            if "function_name" in document[0].metadata:
+                function_name = document[0].metadata['function_name']
+
+            if page:
+                print('page: ', page)
+                doc_info = {
+                    "rag_type": 'opensearch-vector',
+                    "confidence": confidence,
+                    "metadata": {
+                        "source": uri,
+                        "title": name,
+                        "excerpt": excerpt,
+                        "document_attributes": {
+                            "_excerpt_page_number": page
+                        },
+                        "code": code,
+                        "function_name": function_name
+                    },
+                    "assessed_score": assessed_score,
+                }
+            else:
+                doc_info = {
+                    "rag_type": 'opensearch-vector',
+                    "confidence": confidence,
+                    "metadata": {
+                        "source": uri,
+                        "title": name,
+                        "excerpt": excerpt,
+                        "code": code,
+                        "function_name": function_name
+                    },
+                    "assessed_score": assessed_score,
+                }
+            relevant_docs.append(doc_info)
+    
+        # Lexical search (keyword)
+        min_match = 0
+        if enableNoriPlugin == 'true':
+            query = {
+                "query": {
+                    "bool": {
+                        "must": [
+                            {
+                                "match": {
+                                    "text": {
+                                        "query": query,
+                                        "minimum_should_match": f'{min_match}%',
+                                        "operator":  "or",
+                                    }
+                                }
+                            },
+                        ],
+                        "filter": [
+                        ]
+                    }
+                }
+            }
+
+            response = os_client.search(
+                body=query,
+                index="idx-*", # all
+            )
+            
+            for i, document in enumerate(response['hits']['hits']):
+                if i>top_k: 
+                    break
+                
+                excerpt = document['_source']['text']
+                print(f'## Document(opensearch-keyward) {i+1}: {excerpt}')
+
+                name = document['_source']['metadata']['name']
+                print('name: ', name)
+
+                page = ""
+                if "page" in document['_source']['metadata']:
+                    page = document['_source']['metadata']['page']
+                
+                uri = ""
+                if "uri" in document['_source']['metadata']:
+                    uri = document['_source']['metadata']['uri']
+                print('uri: ', uri)
+
+                confidence = str(document['_score'])
+                assessed_score = ""
+                
+                code = ""
+                if "code" in document['_source']['metadata']:
+                    code = document['_source']['metadata']['code']
+                
+                function_name = ""
+                if "function_name" in document['_source']['metadata']:
+                    function_name = document['_source']['metadata']['function_name']
+
+                if page:
+                    print('page: ', page)
+                    doc_info = {
+                        "rag_type": 'opensearch-keyward',
+                        "confidence": confidence,
+                        "metadata": {
+                            "source": uri,
+                            "title": name,
+                            "excerpt": excerpt,
+                            "document_attributes": {
+                                "_excerpt_page_number": page
+                            },
+                            "code": code,
+                            "function_name": function_name
+                        },
+                        "assessed_score": assessed_score,
+                    }
+                else: 
+                    doc_info = {
+                        "rag_type": 'opensearch-keyward',
+                        "confidence": confidence,
+                        "metadata": {
+                            "source": uri,
+                            "title": name,
+                            "excerpt": excerpt,
+                            "code": code,
+                            "function_name": function_name
+                        },
+                        "assessed_score": assessed_score,
+                    }
+                
+                if checkDupulication(relevant_docs, doc_info) == False:
+                    relevant_docs.append(doc_info)
+                    
+    return relevant_docs
+```
+
+
 ### 관련된 Code를 가지고 Context를 생성
 
 Context에 관련된 문서를 넣어서 아래와 같은 prompt를 이용하여 질문에 맞는 코드를 생성합니다.
 
+```python
+selected_relevant_docs = []
+if len(relevant_docs) >= 1:
+    selected_relevant_docs = priority_search(text, relevant_docs, bedrock_embeddings)
+relevant_code = ""
+for document in selected_relevant_docs:
+if document['metadata']['code']:
+    code = document['metadata']['code']
+    relevant_code = relevant_code + code + "\n\n"
+
+try:
+    isTyping(connectionId, requestId)
+    stream = llm(PROMPT.format(context = relevant_code, question = text))
+    msg = readStreamMsg(connectionId, requestId, stream)                    
+except Exception:
+    err_msg = traceback.format_exc()
+    print('error message: ', err_msg)
+```
+       
+```python
+def priority_search(query, relevant_docs, bedrock_embeddings):
+    excerpts = []
+    for i, doc in enumerate(relevant_docs):
+        # print('doc: ', doc)
+        content = doc['metadata']['excerpt']        
+        excerpts.append(
+            Document(
+                page_content=content,
+                metadata={
+                    'name': doc['metadata']['title'],
+                    'order':i,
+                }
+            )
+        )  
+    # print('excerpts: ', excerpts)
+
+    embeddings = bedrock_embeddings
+    vectorstore_confidence = FAISS.from_documents(
+        excerpts,  # documents
+        embeddings  # embeddings
+    )            
+    rel_documents = vectorstore_confidence.similarity_search_with_score(
+        query=query,
+        k=top_k
+    )
+
+    docs = []
+    for i, document in enumerate(rel_documents):
+        print(f'## Document(priority_search) {i+1}: {document}')
+
+        order = document[0].metadata['order']
+        name = document[0].metadata['name']
+        assessed_score = document[1]
+        print(f"{order} {name}: {assessed_score}")
+
+        relevant_docs[order]['assessed_score'] = int(assessed_score)
+
+        if assessed_score < 400:
+            docs.append(relevant_docs[order])    
+    # print('selected docs: ', docs)
+
+    return docs
+```
+
 ### Code의 Reference 
 
 Code를 사용할때 원본 코드, 참고한 Code 정보를 함께 보여주어서, 참조한 코드의 활용도를 높입니다.
+
+```python
+def get_reference(docs):
+    reference = "\n\nFrom\n"
+    for i, doc in enumerate(docs):
+        excerpt = doc['metadata']['excerpt'].replace('"','')
+        code = doc['metadata']['code'].replace('"','')
+        
+        excerpt = excerpt.replace('\n','\\n')
+        code = code.replace('\n','\\n')
+        print('reference_doc: ', json.dumps(doc))
+        
+        if doc['rag_type'][:10] == 'opensearch':
+            print(f'## Document(get_reference) {i+1}: {doc}')
+                
+            page = ""
+            if "document_attributes" in doc['metadata']:
+                if "_excerpt_page_number" in doc['metadata']['document_attributes']:
+                    page = doc['metadata']['document_attributes']['_excerpt_page_number']
+            uri = doc['metadata']['source']
+            name = doc['metadata']['title']
+            name = name[name.rfind('/')+1:len(name)]
+
+            if page:                
+                reference = reference + f"{i+1}. {page}page in <a href={uri} target=_blank>{name}</a>, {doc['rag_type']} ({doc['assessed_score']}), <a href=\"#\" onClick=\"alert(`{excerpt}`)\">코드설명</a>, <a href=\"#\" onClick=\"alert(`{code}`)\">관련코드</a>\n"
+            else:
+                reference = reference + f"{i+1}. <a href={uri} target=_blank>{name}</a>, {doc['rag_type']} ({doc['assessed_score']}), <a href=\"#\" onClick=\"alert(`{excerpt}`)\">코드설명</a>, <a href=\"#\" onClick=\"alert(`{code}`)\">관련코드</a>\n"
+                            
+    return reference
+```    
 
 ## 직접 실습 해보기
 
