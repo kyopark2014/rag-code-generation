@@ -53,6 +53,7 @@ history_length = 0
 token_counter_history = 0
 
 enableNoriPlugin = os.environ.get('enableNoriPlugin')
+enableParallelSummay = os.environ.get('enableParallelSummay')
 
 os_client = OpenSearch(
     hosts = [{
@@ -425,7 +426,7 @@ def summarize_process_for_relevent_code(conn, llm, code, object, bedrock_region)
     except Exception:
         err_msg = traceback.format_exc()
         print('error message: ', err_msg)       
-        raise Exception (f"Not able to translate: {doc}")   
+        # raise Exception (f"Not able to summarize: {doc}")   
         
     conn.close()
 
@@ -1028,9 +1029,8 @@ def getResponse(connectionId, jsonBody):
                 
                 docs = []
                 msg = ""
-                
-                useParallelSummay = False
-                if useParallelSummay:
+                                
+                if enableParallelSummay=='true':
                     docs = summarize_relevant_codes_using_parallel_processing(codes, object)
                     
                 else:

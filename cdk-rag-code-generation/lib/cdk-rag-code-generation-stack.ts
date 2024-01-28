@@ -29,6 +29,7 @@ let opensearch_url = "";
 const numberOfRelevantDocs = '4';
 const allowDualSearching='true'
 const enableNoriPlugin = 'true';
+const enableParallelSummay = 'true';
 
 const claude_instance = JSON.stringify([
   {
@@ -508,7 +509,8 @@ export class CdkRagCodeGenerationStack extends cdk.Stack {
         numberOfRelevantDocs: numberOfRelevantDocs,
         profile_of_LLMs:profile_of_LLMs,
         allowDualSearching: allowDualSearching,
-        enableNoriPlugin: enableNoriPlugin
+        enableNoriPlugin: enableNoriPlugin,
+        enableParallelSummay: enableParallelSummay
       }
     });     
     lambdaChatWebsocket.grantInvoke(new iam.ServicePrincipal('apigateway.amazonaws.com'));  
