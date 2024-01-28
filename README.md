@@ -1,6 +1,12 @@
 # RAG를 이용한 Code Generation
 
-RAG를 이용해 코드를 검색하고 이때 얻어진 코드를 이용하여 목적에 맞는 코드를 생성합니다.
+[Amazon CodeWhisperer](https://docs.aws.amazon.com/codewhisperer/latest/userguide/what-is-cwspr.html)와 같은 Machine Learning 기반의 Code 생성을 돕는 툴들은 기업의 생산성 향상에 도움을 주고 있습니다. 하지만 기업의 자산인 Code들을 이러한 툴들과 함게 활용하기 위해 [Fine Tunining](https://docs.aws.amazon.com/ko_kr/sagemaker/latest/dg/jumpstart-fine-tune.html)을 하려면 비용도 고려해야하고 관련된 Code들이 계속 업데이트 될 경우에 새로운 Fine Tuning에 대한 부담이 있을 수 있습니다.반면에 [RAG (Retrieval Augmented Generation)](https://docs.aws.amazon.com/ko_kr/sagemaker/latest/dg/jumpstart-foundation-models-customize-rag.html)은 [LLM (Large Language Model)](https://aws.amazon.com/ko/what-is/large-language-model/)과 [Amazon OpenSearch](https://docs.aws.amazon.com/ko_kr/opensearch-service/latest/developerguide/what-is.html)과 같은 검색 엔진을 활용하여 Fine-Tunining과 유사한 기능을 제공할 수 있습니다. 
+
+본 게시글에서는 LLM과 OpenSearch를 이용하여 RAG를 구성하고, 요청에 맞는 Code를 검색하고 이때 얻어진 관련된 Code를 이용하여 목적에 맞는 Code를 생성합니다. 
+
+
+
+
 
 
 ## Architecture 개요
