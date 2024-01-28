@@ -37,7 +37,27 @@
 
 ### Code 요약
 
-업로드한 코드를 함수별로 나누는 chunking을 수행합니다.
+하나의 프로그램은 여러개의 Function을 가질 수 있습니다. 여기에서는 Function 단위로 Code를 요약하여 RAG에서 검색하여 활용하고자 합니다. S3로 부터 파일을 읽어 들인 후, Function 단위로 분리하기 위하여 Chunking을 수행합니다.
+
+```python
+def load_code(file_type, s3_file_name):
+    s3r = boto3.resource("s3")
+    doc = s3r.Object(s3_bucket, s3_prefix+'/'+s3_file_name)
+    
+    if file_type == 'py':        
+        contents = doc.get()['Body'].read().decode('utf-8')
+    
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=50,
+        chunk_overlap=0,
+        separators=["\ndef "],
+        length_function = len,
+    ) 
+
+    texts = text_splitter.split_text(contents) 
+                
+    return texts
+```
 
 ### 함수 별로 코드 요약
 
