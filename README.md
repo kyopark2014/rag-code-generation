@@ -154,7 +154,7 @@ def summary_of_code(llm, code):
     return summary
 ```
 
-### Code 요약을 OpenSearch에 등록
+### 코드 요약을 OpenSearch에 등록
 
 RAG로 OpenSearch를 이용합니다. [2023년 10월에 한국어, 일본어, 중국어에 대한 새로운 언어 분석기 플러그인이 OpenSearch에 추가](https://aws.amazon.com/ko/about-aws/whats-new/2023/10/amazon-opensearch-four-language-analyzers/) 되었습니다. 이제 OpenSearch에서 한국어를 Nori 분석기를 이용하여 Lexical 검색을 이용하고 이를 이용해 RAG를 구현할 수 있습니다. 여기서는 OpenSearch에서 [Nori 플러그인을 이용한 한국어 분석](https://aws.amazon.com/ko/blogs/tech/amazon-opensearch-service-korean-nori-plugin-for-analysis/) 블로그와 [01_2_load_json_kr_docs_opensearch.ipynb](https://github.com/aws-samples/aws-ai-ml-workshop-kr/blob/master/genai/aws-gen-ai-kr/20_applications/02_qa_chatbot/01_preprocess_docs/01_2_load_json_kr_docs_opensearch.ipynb)를 참조하였습니다.
 
