@@ -1,14 +1,65 @@
-# Welcome to your CDK TypeScript project
+# CDK로 인프라 설치하기
 
-This is a blank project for CDK development with TypeScript.
+```typescript
+const s3Bucket = new s3.Bucket(this, `storage-${projectName}`, {
+    bucketName: bucketName,
+    blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+    removalPolicy: cdk.RemovalPolicy.DESTROY,
+    autoDeleteObjects: true,
+    publicReadAccess: false,
+    versioned: false,
+    cors: [
+        {
+            allowedHeaders: ['*'],
+            allowedMethods: [
+                s3.HttpMethods.POST,
+                s3.HttpMethods.PUT,
+            ],
+            allowedOrigins: ['*'],
+        },
+    ],
+});
+if (debug) {
+    new cdk.CfnOutput(this, 'bucketName', {
+        value: s3Bucket.bucketName,
+        description: 'The nmae of bucket',
+    });
+    new cdk.CfnOutput(this, 's3Arn', {
+        value: s3Bucket.bucketArn,
+        description: 'The arn of s3',
+    });
+    new cdk.CfnOutput(this, 's3Path', {
+        value: 's3://' + s3Bucket.bucketName,
+        description: 'The path of s3',
+    });
+}
+```
 
-The `cdk.json` file tells the CDK Toolkit how to execute your app.
 
-## Useful commands
+```typescript
 
-* `npm run build`   compile typescript to js
-* `npm run watch`   watch for changes and compile
-* `npm run test`    perform the jest unit tests
-* `npx cdk deploy`  deploy this stack to your default AWS account/region
-* `npx cdk diff`    compare deployed stack with current state
-* `npx cdk synth`   emits the synthesized CloudFormation template
+```
+
+```typescript
+
+```
+
+```typescript
+
+```
+
+```typescript
+
+```
+
+```typescript
+
+```
+
+```typescript
+
+```
+
+```typescript
+
+```
