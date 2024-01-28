@@ -1109,7 +1109,7 @@ def getResponse(connectionId, jsonBody):
             
             sendResultMessage(connectionId, requestId, msg+reference)
 
-        elapsed_time = time.time() - start
+        elapsed_time = str(time.time() - start)
         print("total run time(sec): ", elapsed_time)
 
         item = {    # save dialog
