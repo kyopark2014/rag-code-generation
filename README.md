@@ -11,7 +11,7 @@
 
 ## Architecture 개요
 
-전체적인 Architecture는 아래와 같습니다.
+전체적인 Architecture는 아래와 같습니다. 사용자는 [WebSocket 방식의 API Gateway](https://aws.amazon.com/ko/blogs/tech/stream-chatbot-for-amazon-bedrock/)를 이용하여 접속하고, 유지보수에 유리한 Amazon Lambda를 이용하여 RAG의 Knowledge Store로 부터 관련된 code를 검색하고, Prompt를 이용해 Code를 생성합니다. Amazon OpenSearch는 매우 빠르고 성능이 좋은 검색 엔진으로 다양한 Code를 빠르고 검색할 수 있습니다. 여기서는 OpenSearch의 [Vector 검색](https://opensearch.org/platform/search/vector-database.html), [한국어를 지원한 Nori 분석기](https://aws.amazon.com/ko/blogs/tech/amazon-opensearch-service-korean-nori-plugin-for-analysis/)를 이용하여 Lexical 검색을 하여 검색의 정확도를 높입니다. 관련된 Code를 한국어로 검색하기 위하여 RAG에 저장되는 Reference Code들은 Function 단위로 Chunking된 후에 LLM을 이용하여 요약(Summerazation)됩니다. Function 별로 요약할때 속도를 개선하기 위하여 [Multi-Region LLM](https://aws.amazon.com/ko/blogs/tech/multi-rag-and-multi-region-llm-for-chatbot/)을 활용합니다. AWS에 이러한 인프라를 배포하고 관리하는것은 [AWS CDK](https://docs.aws.amazon.com/cdk/v2/guide/home.html)을 이용합니다.
 
 <img src="https://github.com/kyopark2014/rag-code-generation/assets/52392004/3f5e891c-3cbf-44d5-b337-82229e0a10f9" width="900">
 
