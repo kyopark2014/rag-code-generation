@@ -376,7 +376,7 @@ def load_code(file_type, s3_file_name):
     return texts
 
 def summary_of_code(llm, code):
-    PROMPT = """\n\nHuman: 다음의 <article>의 python code입니다. 각 함수의 기능과 역할을 자세하게 500자 이내로 설명하세요. 결과는 <result> tag를 붙여주세요.
+    PROMPT = """\n\nHuman: 다음의 <article> tag에는 python code가 있습니다. 각 함수의 기능과 역할을 자세하게 500자 이내로 설명하세요. 결과는 <result> tag를 붙여주세요.
            
     <article>
     {input}
@@ -567,9 +567,9 @@ def readStreamMsg(connectionId, requestId, stream):
     # print('msg: ', msg)
     return msg
 
-def priority_search(query, relevant_docs, bedrock_embeddings):
+def priority_search(query, relevant_codes, bedrock_embeddings):
     excerpts = []
-    for i, doc in enumerate(relevant_docs):
+    for i, doc in enumerate(relevant_codes):
         # print('doc: ', doc)
         content = doc['metadata']['excerpt']        
         excerpts.append(
@@ -602,10 +602,10 @@ def priority_search(query, relevant_docs, bedrock_embeddings):
         assessed_score = document[1]
         print(f"{order} {name}: {assessed_score}")
 
-        relevant_docs[order]['assessed_score'] = int(assessed_score)
+        relevant_codes[order]['assessed_score'] = int(assessed_score)
 
         if assessed_score < 400:
-            docs.append(relevant_docs[order])    
+            docs.append(relevant_codes[order])    
     # print('selected docs: ', docs)
 
     return docs
@@ -638,17 +638,18 @@ def get_reference(docs, path, doc_prefix):
                             
     return reference
 
-def checkDupulication(relevant_docs, doc_info):
-    for doc in relevant_docs:
+def checkDupulication(relevant_codes, doc_info):
+    for doc in relevant_codes:
         if doc['metadata']['excerpt'] == doc_info['metadata']['excerpt']:
             return True
     return False
 
 def retrieve_from_vectorstore(query, top_k, rag_type):
     print(f"query: {query} ({rag_type})")
-
-    relevant_docs = []
+    relevant_codes = []
+        
     if rag_type == 'opensearch':
+        # Vector Search
         relevant_documents = vectorstore_opensearch.similarity_search_with_score(
             query = query,
             k = top_k,
@@ -710,9 +711,9 @@ def retrieve_from_vectorstore(query, top_k, rag_type):
                     },
                     "assessed_score": assessed_score,
                 }
-            relevant_docs.append(doc_info)
+            relevant_codes.append(doc_info)
     
-        # rexical search (keyword)
+        # Lexical Search (keyword)
         min_match = 0
         if enableNoriPlugin == 'true':
             query = {
@@ -819,14 +820,14 @@ def retrieve_from_vectorstore(query, top_k, rag_type):
                         "assessed_score": assessed_score,
                     }
                 
-                if checkDupulication(relevant_docs, doc_info) == False:
-                    relevant_docs.append(doc_info)
+                if checkDupulication(relevant_codes, doc_info) == False:
+                    relevant_codes.append(doc_info)
                     
-    return relevant_docs
+    return relevant_codes
 
 def get_code_using_RAG(llm, text, conv_type, connectionId, requestId, bedrock_embeddings):
-    global time_for_rag, time_for_inference, time_for_priority_search, number_of_relevant_docs  # for debug
-    time_for_rag = time_for_inference = time_for_priority_search = number_of_relevant_docs = 0
+    global time_for_rag, time_for_inference, time_for_priority_search, number_of_relevant_codes  # for debug
+    time_for_rag = time_for_inference = time_for_priority_search = number_of_relevant_codes = 0
     
     reference = ""
     start_time_for_rag = time.time()
@@ -834,29 +835,29 @@ def get_code_using_RAG(llm, text, conv_type, connectionId, requestId, bedrock_em
     PROMPT = get_prompt_template(text, conv_type)
     print('PROMPT: ', PROMPT)        
 
-    relevant_docs = [] 
+    relevant_codes = [] 
     print('start RAG for question')
 
     rag_type = 'opensearch'
-    relevant_docs = retrieve_from_vectorstore(query=text, top_k=top_k, rag_type=rag_type)
-    print(f'relevant_docs ({rag_type}): '+json.dumps(relevant_docs))
+    relevant_codes = retrieve_from_vectorstore(query=text, top_k=top_k, rag_type=rag_type)
+    print(f'relevant_codes ({rag_type}): '+json.dumps(relevant_codes))
     
     end_time_for_rag = time.time()
     time_for_rag = end_time_for_rag - start_time_for_rag
     print('processing time for RAG: ', time_for_rag)
 
-    selected_relevant_docs = []
-    if len(relevant_docs)>=1:
-        selected_relevant_docs = priority_search(text, relevant_docs, bedrock_embeddings)
-        print('selected_relevant_docs: ', json.dumps(selected_relevant_docs))
+    selected_relevant_codes = []
+    if len(relevant_codes)>=1:
+        selected_relevant_codes = priority_search(text, relevant_codes, bedrock_embeddings)
+        print('selected_relevant_codes: ', json.dumps(selected_relevant_codes))
     
     end_time_for_priority_search = time.time() 
     time_for_priority_search = end_time_for_priority_search - end_time_for_rag
     print('processing time for priority search: ', time_for_priority_search)
-    number_of_relevant_docs = len(selected_relevant_docs)
+    number_of_relevant_codes = len(selected_relevant_codes)
 
     relevant_code = ""
-    for document in selected_relevant_docs:
+    for document in selected_relevant_codes:
         if document['metadata']['code']:
             code = document['metadata']['code']
             relevant_code = relevant_code + code + "\n\n"            
@@ -872,8 +873,8 @@ def get_code_using_RAG(llm, text, conv_type, connectionId, requestId, bedrock_em
         sendErrorMessage(connectionId, requestId, err_msg)    
         raise Exception ("Not able to request to LLM")    
 
-    if len(selected_relevant_docs)>=1 and enableReference=='true':
-        reference = get_reference(selected_relevant_docs, path, doc_prefix)  
+    if len(selected_relevant_codes)>=1 and enableReference=='true':
+        reference = get_reference(selected_relevant_codes, path, doc_prefix)  
 
     end_time_for_inference = time.time()
     time_for_inference = end_time_for_inference - end_time_for_priority_search
