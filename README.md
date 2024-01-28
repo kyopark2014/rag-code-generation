@@ -61,7 +61,105 @@ def load_code(file_type, s3_file_name):
 
 ### 함수 별로 코드 요약
 
- 함수별로 Chunk 되었으므로 각 함수에 대한 요약을 수행합니다. 수행속도를 위해 Multi-LLM을 활용합니다.
+ 함수별로 Chunk 되었으므로 각 함수에 대한 요약을 수행합니다. 수행속도를 위해 Multi-LLM과 Multi Thread를 활용합니다.
+
+```python
+ def summarize_relevant_codes_using_parallel_processing(codes, object):
+    selected_LLM = 0
+    relevant_codes = []    
+    processes = []
+    parent_connections = []
+    for code in codes:
+        parent_conn, child_conn = Pipe()
+        parent_connections.append(parent_conn)
+            
+        llm = get_llm(profile_of_LLMs, selected_LLM)
+        bedrock_region = profile_of_LLMs[selected_LLM]['bedrock_region']
+
+        process = Process(target=summarize_process_for_relevent_code, args=(child_conn, llm, code, object, bedrock_region))
+        processes.append(process)
+
+        selected_LLM = selected_LLM + 1
+        if selected_LLM == len(profile_of_LLMs):
+            selected_LLM = 0
+
+    for process in processes:
+        process.start()
+            
+    for parent_conn in parent_connections:
+        doc = parent_conn.recv()
+        
+        if doc:
+            relevant_codes.append(doc)    
+
+    for process in processes:
+        process.join()
+    
+    return relevant_codes
+
+def summarize_process_for_relevent_code(conn, llm, code, object, bedrock_region):
+    try: 
+        start = code.find('\ndef ')
+        end = code.find(':')                    
+                    
+        doc = ""    
+        if start != -1:      
+            function_name = code[start+1:end]
+                            
+            summary = summary_of_code(llm, code)
+            print(f"summary ({bedrock_region}): {summary}")
+            
+            if summary[:len(function_name)]==function_name:
+                summary = summary[summary.find('\n')+1:len(summary)]
+
+            doc = Document(
+                page_content=summary,
+                metadata={
+                    'name': object,
+                    'uri': path+doc_prefix+parse.quote(object),
+                    'code': code,
+                    'function_name': function_name
+                }
+            )            
+                        
+    except Exception:
+        err_msg = traceback.format_exc()
+        print('error message: ', err_msg)       
+    
+    conn.send(doc)    
+    conn.close()
+```
+
+Code를 요약하기 위해 Prompt를 활용합니다.
+
+```python
+def summary_of_code(llm, code):
+    PROMPT = """\n\nHuman: 다음의 <article> tag는 python code입니다. 각 함수의 기능과 역할을 자세하게 500자 이내로 설명하세요. 결과는 <result> tag를 붙여주세요.
+           
+    <article>
+    {input}
+    </article>
+                        
+    Assistant:"""
+ 
+    try:
+        summary = llm(PROMPT.format(input=code))
+        #print('summary: ', summary)
+    except Exception:
+        err_msg = traceback.format_exc()
+        print('error message: ', err_msg)        
+        raise Exception ("Not able to summary the message")
+   
+    summary = summary[summary.find('<result>')+9:len(summary)-10] # remove <result> tag
+    
+    summary = summary.replace('\n\n', '\n') 
+    if summary[0] == '\n':
+        summary = summary[1:len(summary)]
+   
+    return summary
+```
+
+
 
 ### Code 요약을 OpenSearch에 등록
 
