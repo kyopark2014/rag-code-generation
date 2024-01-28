@@ -82,9 +82,10 @@ cdk deploy --all
 
 아래와 같이 Output의 HtmlUpdateCommend을 붙여넣기 합니다. 
 
-![noname](https://github.com/kyopark2014/rag-code-generation/assets/52392004/307cb0a0-a09c-485c-a7a5-f65cef2c9eaf)
+![noname](https://github.com/kyopark2014/rag-code-generation/assets/52392004/87303834-9917-47fa-8f75-2aa654a486a7)
+
 
 
 10) Output의 WebUrlforragenhancedsearching 있는 URL을 복사하여 웹 브라우저로 접속합니다. User Id로 적당한 이름을 넣고, Conversation Type로는 "2. Question/Answering (RAG)"를 선택합니다.
 
-![noname](https://github.com/kyopark2014/rag-code-generation/assets/52392004/689445d3-d4a1-4b2e-9390-303b0404c99b)
+![noname](https://github.com/kyopark2014/rag-code-generation/assets/52392004/f74c0d6e-2ba7-4061-933f-231925d91796)
