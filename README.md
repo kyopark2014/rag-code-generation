@@ -7,8 +7,7 @@ RAG를 이용해 코드를 검색하고 이때 얻어진 코드를 이용하여 
 
 전체적인 Architecture는 아래와 같습니다.
 
-![image](https://github.com/kyopark2014/rag-code-generation/assets/52392004/3f5e891c-3cbf-44d5-b337-82229e0a10f9)
-
+<img src="https://github.com/kyopark2014/rag-code-generation/assets/52392004/3f5e891c-3cbf-44d5-b337-82229e0a10f9" width="900">
 
 Sequence Diagram은 아래와 같습니다.
 
