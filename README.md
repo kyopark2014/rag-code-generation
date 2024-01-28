@@ -130,11 +130,11 @@ def summarize_process_for_relevent_code(conn, llm, code, object, bedrock_region)
     conn.close()
 ```
 
-Code를 요약하기 위해 Prompt를 활용합니다.
+Code를 요약하기 위해 Prompt를 활용합니다. 요약한 결과만을 추출하기 위하여 <result> tag를 활용하였고, 불필요한 줄바꿈은 아래와 같이 삭제하였습니다. 
 
 ```python
 def summary_of_code(llm, code):
-    PROMPT = """\n\nHuman: 다음의 <article> tag는 python code입니다. 각 함수의 기능과 역할을 자세하게 500자 이내로 설명하세요. 결과는 <result> tag를 붙여주세요.
+    PROMPT = """\n\nHuman: 다음의 <article> tag에는 python code가 있습니다. 각 함수의 기능과 역할을 자세하게 500자 이내로 설명하세요. 결과는 <result> tag를 붙여주세요.
            
     <article>
     {input}
@@ -144,7 +144,6 @@ def summary_of_code(llm, code):
  
     try:
         summary = llm(PROMPT.format(input=code))
-        #print('summary: ', summary)
     except Exception:
         err_msg = traceback.format_exc()
         print('error message: ', err_msg)        
@@ -159,11 +158,116 @@ def summary_of_code(llm, code):
     return summary
 ```
 
+[2023년 10월에 한국어, 일본어, 중국어에 대한 새로운 언어 분석기 플러그인이 OpenSearch에 추가](https://aws.amazon.com/ko/about-aws/whats-new/2023/10/amazon-opensearch-four-language-analyzers/) 되었습니다. 이제 OpenSearch에서 한국어를 Nori 분석기를 이용하여 Lexical 검색을 이용하고 이를 이용해 RAG를 구현할 수 있습니다. 여기서는 OpenSearch에서 [Nori 플러그인을 이용한 한국어 분석](https://aws.amazon.com/ko/blogs/tech/amazon-opensearch-service-korean-nori-plugin-for-analysis/) 블로그와 [01_2_load_json_kr_docs_opensearch.ipynb](https://github.com/aws-samples/aws-ai-ml-workshop-kr/blob/master/genai/aws-gen-ai-kr/20_applications/02_qa_chatbot/01_preprocess_docs/01_2_load_json_kr_docs_opensearch.ipynb)를 참조하였습니다.
+
+```python
+def store_document_for_opensearch_with_nori(bedrock_embeddings, docs, documentId):
+    index_name = get_index_name(documentId)
+    
+    delete_index_if_exist(index_name)
+    
+    index_body = {
+        'settings': {
+            'analysis': {
+                'analyzer': {
+                    'my_analyzer': {
+                        'char_filter': ['html_strip'], 
+                        'tokenizer': 'nori',
+                        'filter': ['nori_number','lowercase','trim','my_nori_part_of_speech'],
+                        'type': 'custom'
+                    }
+                },
+                'tokenizer': {
+                    'nori': {
+                        'decompound_mode': 'mixed',
+                        'discard_punctuation': 'true',
+                        'type': 'nori_tokenizer'
+                    }
+                },
+                "filter": {
+                    "my_nori_part_of_speech": {
+                        "type": "nori_part_of_speech",
+                        "stoptags": [
+                                "E", "IC", "J", "MAG", "MAJ",
+                                "MM", "SP", "SSC", "SSO", "SC",
+                                "SE", "XPN", "XSA", "XSN", "XSV",
+                                "UNA", "NA", "VSV"
+                        ]
+                    }
+                }
+            },
+            'index': {
+                'knn': True,
+                'knn.space_type': 'cosinesimil' 
+            }
+        },
+        'mappings': {
+            'properties': {
+                'metadata': {
+                    'properties': {
+                        'source' : {'type': 'keyword'},                    
+                        'last_updated': {'type': 'date'},
+                        'project': {'type': 'keyword'},
+                        'seq_num': {'type': 'long'},
+                        'title': {'type': 'text'},  
+                        'url': {'type': 'text'},  
+                    }
+                },            
+                'text': {
+                    'analyzer': 'my_analyzer',
+                    'search_analyzer': 'my_analyzer',
+                    'type': 'text'
+                },
+                'vector_field': {
+                    'type': 'knn_vector',
+                    'dimension': 1536  # Replace with your vector dimension
+                }
+            }
+        }
+    }
+    
+    try: # create index
+        response = os_client.indices.create(
+            index_name,
+            body=index_body
+        )
+    except Exception:
+        err_msg = traceback.format_exc()
+        print('error message: ', err_msg)                
+
+    try: # put the doucment
+        vectorstore = OpenSearchVectorSearch(
+            index_name=index_name,  
+            is_aoss = False,
+            embedding_function = bedrock_embeddings,
+            opensearch_url = opensearch_url,
+            http_auth=(opensearch_account, opensearch_passwd),
+        )
+        response = vectorstore.add_documents(docs, bulk_size = 2000)
+        print('response of adding documents: ', response)
+    except Exception:
+        err_msg = traceback.format_exc()
+        print('error message: ', err_msg)                
+```
+
 
 
 ### Code 요약을 OpenSearch에 등록
 
 RAG로 OpenSearch를 이용합니다. 각 Chunk는 함수 1개씩을 의미하므로 코드 요약과 원본 코드를 아래와 같이 metadata에 저장합니다.
+
+```python
+if file_type == 'py':
+    category = file_type
+    key = doc_prefix+object
+    documentId = category + "-" + key
+    documentId = documentId.replace(' ', '_') 
+    documentId = documentId.replace(',', '_') 
+    documentId = documentId.replace('/', '_') 
+    documentId = documentId.lower() 
+
+    store_document_for_opensearch_with_nori(bedrock_embeddings, docs, documentId)
+```
 
 ### RAG의 Knowledge Store를 이용하여 관련 Code 검색
 
