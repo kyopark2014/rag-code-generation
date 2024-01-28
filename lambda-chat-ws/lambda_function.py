@@ -410,7 +410,7 @@ def summarize_process_for_relevent_code(conn, llm, code, object, bedrock_region)
             function_name = code[start+1:end]
             # print('function_name: ', function_name)
                             
-            summary = summary_of_code(llm=llm, msg=code)
+            summary = summary_of_code(llm, code)
             print(f"summary ({bedrock_region}): {summary}")
 
             doc = Document(
