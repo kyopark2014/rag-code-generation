@@ -265,7 +265,7 @@ def store_document_for_opensearch_with_nori(bedrock_embeddings, docs, documentId
 
 ```python
 def retrieve_from_vectorstore(query, top_k, rag_type):
-    relevant_codes = []
+    relevant_codes = []
 
     # Vector Search
     if rag_type == 'opensearch':
@@ -295,7 +295,7 @@ def retrieve_from_vectorstore(query, top_k, rag_type):
                 },
                 "assessed_score": assessed_score,
             }
-            relevant_codes.append(doc_info)
+            relevant_codes.append(doc_info)
     
         # Lexical search (keyword)
         min_match = 0
@@ -349,10 +349,10 @@ def retrieve_from_vectorstore(query, top_k, rag_type):
                     },
                     "assessed_score": assessed_score,
                 }                
-                if checkDupulication(relevant_codes, doc_info) == False:
-                    relevant_codes.append(doc_info)
+                if checkDupulication(relevant_codes, doc_info) == False:
+                    relevant_codes.append(doc_info)
                     
-    return relevant_codes
+    return relevant_codes
 ```
 
 
@@ -361,12 +361,12 @@ def retrieve_from_vectorstore(query, top_k, rag_type):
 Context에 관련된 문서를 넣어서 아래와 같은 prompt를 이용하여 질문에 맞는 코드를 생성합니다.
 
 ```python
-selected_relevant_codes = []
-if len(relevant_codes) >= 1:
-    selected_relevant_codes = priority_search(text, relevant_codes, bedrock_embeddings)
+selected_relevant_codes = []
+if len(relevant_codes) >= 1:
+    selected_relevant_codes = priority_search(text, relevant_codes, bedrock_embeddings)
 
 relevant_code = ""
-for document in selected_relevant_codes:
+for document in selected_relevant_codes:
     if document['metadata']['code']:
         code = document['metadata']['code']
         relevant_code = relevant_code + code + "\n\n"
@@ -383,9 +383,9 @@ except Exception:
 Faiss의 Similarity Search를 이용하여 관련도 기준으로 정렬합니다. 관련된 문서
        
 ```python
-def priority_search(query, relevant_codes, bedrock_embeddings):
+def priority_search(query, relevant_codes, bedrock_embeddings):
     excerpts = []
-    for i, doc in enumerate(relevant_codes):
+    for i, doc in enumerate(relevant_codes):
         content = doc['metadata']['excerpt']        
         excerpts.append(
             Document(
@@ -416,10 +416,10 @@ def priority_search(query, relevant_codes, bedrock_embeddings):
         assessed_score = document[1]
         print(f"{order} {name}: {assessed_score}")
 
-        relevant_codes[order]['assessed_score'] = int(assessed_score)
+        relevant_codes[order]['assessed_score'] = int(assessed_score)
 
         if assessed_score < 400:
-            docs.append(relevant_codes[order])    
+            docs.append(relevant_codes[order])    
     return docs
 ```
 
