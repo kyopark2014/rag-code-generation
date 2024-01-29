@@ -466,7 +466,7 @@ def get_reference(docs):
 
 ![image](https://github.com/kyopark2014/rag-code-generation/assets/52392004/44b752de-f1fb-43e9-a6f6-e7ade65dbcb8)
 
-채팅창에 아래와 같이 "OpenSearch에서 Knowledge Store 생성하기"라고 입력하고 결과를 확인합니다.
+채팅창에 아래와 같이 "OpenSearch에서 Knowledge Store 생성하기"라고 입력하고 결과를 확인합니다. 아래와 같이 질문과 관련된 코드를 생성할 수 있으며, 생성된 코드에 대한 설명과 함께 레퍼런스에 대한 정보를 함께 제공하여 사용자가 생성된 코드를 이해하는데 도움을 줍니다. 
 
 ![result](https://github.com/kyopark2014/rag-code-generation/assets/52392004/1863643d-d263-408c-ae54-dfea3aa9eff5)
 
