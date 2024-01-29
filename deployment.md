@@ -86,6 +86,6 @@ cdk deploy --all
 
 
 
-10) Output의 WebUrlforragenhancedsearching 있는 URL을 복사하여 웹 브라우저로 접속합니다. User Id로 적당한 이름을 넣고, Conversation Type로는 "2. Question/Answering (RAG)"를 선택합니다.
+10) Output의 WebUrlforragenhancedsearching 있는 URL을 복사하여 웹 브라우저로 접속합니다. User Id로 적당한 이름을 넣고, Conversation Type로는 "2. RAG-Code Generation"를 선택합니다.
 
 ![noname](https://github.com/kyopark2014/rag-code-generation/assets/52392004/f74c0d6e-2ba7-4061-933f-231925d91796)
