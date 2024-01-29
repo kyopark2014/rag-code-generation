@@ -67,7 +67,7 @@ cdk deploy --all
 
 설치가 완료되면 아래와 같은 Output이 나옵니다. 
 
-![noname](https://github.com/kyopark2014/rag-code-generation/assets/52392004/bd032613-f546-48f0-8217-67e87d23789c)
+![noname](https://github.com/kyopark2014/rag-code-generation/assets/52392004/87303834-9917-47fa-8f75-2aa654a486a7)
 
 
 8) Nori Plug-in 설치합니다.
@@ -82,7 +82,6 @@ cdk deploy --all
 
 아래와 같이 Output의 HtmlUpdateCommend을 붙여넣기 합니다. 
 
-![noname](https://github.com/kyopark2014/rag-code-generation/assets/52392004/87303834-9917-47fa-8f75-2aa654a486a7)
 
 
 
