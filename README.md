@@ -2,7 +2,8 @@
 
 [Amazon CodeWhisperer](https://docs.aws.amazon.com/codewhisperer/latest/userguide/what-is-cwspr.html)와 같은 Machine Learning 기반의 코드 생성 툴을 이용하면, 기업의 생산성 향상에 도움이 됩니다. 하지만, 기업의 자산인 소스 코드를 이러한 툴과 함께 활용하기 위하여 [Fine Tunining](https://docs.aws.amazon.com/ko_kr/sagemaker/latest/dg/jumpstart-fine-tune.html)을 하려면 비용도 고려해야 하고, 소스 코드들이 계속 업데이트 될 경우에 Fine Tuning 주기에 대한 부담이 있을 수 있습니다. 반면에 [RAG (Retrieval Augmented Generation)](https://docs.aws.amazon.com/ko_kr/sagemaker/latest/dg/jumpstart-foundation-models-customize-rag.html)은 [Amazon OpenSearch](https://docs.aws.amazon.com/ko_kr/opensearch-service/latest/developerguide/what-is.html)와 같은 검색 엔진을 활용하여 Fine Tuning과 유사한 기능을 제공할 수 있고, 일반적으로 업데이트나 비용면에서 Fine tuning 보다 유용하게 사용할 수 있습니다. 
 
-본 게시글에서는 [LLM(Large Language Models)](https://aws.amazon.com/ko/what-is/large-language-model/)과 OpenSearch를 이용하여 RAG를 구성하고, 한국어로 된 질문(Query)으로 코드를 검색합니다. 이와 같이 한국어 검색으로 얻은 관련된 코드들(Relevant Codes)을 이용하여 질문(Query)에 맞는 코드를 생성합니다. LLM을 이용하여 함수 단위의 요약을 수행하고, 얻어진 요약과 원본 코드를 RAG에 등록하여 사용자의 질문이 있을 때에 관련된 코드를 검색하여 활용합니다. 소스 코드는 여러 개의 함수로 구성될 수 있으므로, 동시에 코드 요약을 하게 되면, 시간 지연이 증가할 수 있습니다. 여기서는 [Multi-Region LLM](https://aws.amazon.com/ko/blogs/tech/multi-rag-and-multi-region-llm-for-chatbot/)과 Multi Thread를 활용하여 지연속도를 개선합니다. 
+본 게시글은 [LLM(Large Language Models](https://aws.amazon.com/ko/what-is/large-language-model/)과 OpenSearch로 RAG를 구성한 후에 한국어로 된 질문(Query)을 이용하여 코드를 생성하는 방법을 설명합니다. 한국어로 코드를 검색할 수 있도록 LLM을 이용하여 함수 단위의 요약을 수행하고, 한글 요약과 원본 코드를 RAG에 등록하면 사용자의 질문에 맞는 코드를 생성할 수 있습니다. 소스 코드를 요약할 때에는 [Multi-Region LLM](https://aws.amazon.com/ko/blogs/tech/multi-rag-and-multi-region-llm-for-chatbot/)과 Multi Thread를 활용하여 지연속도를 개선합니다.
+
 
 ## Architecture 개요
 
