@@ -885,8 +885,7 @@ def get_answer_using_ConversationChain(text, conversation, conv_type, connection
         isTyping(connectionId, requestId)    
         stream = conversation.predict(input=text)
         #print('stream: ', stream)                    
-        msg = readStreamMsg(connectionId, requestId, stream)
-        msg = msg.replace(" ","&nbsp;")  
+        msg = readStreamMsg(connectionId, requestId, stream)        
     except Exception:
         err_msg = traceback.format_exc()
         print('error message: ', err_msg)        
@@ -1103,7 +1102,8 @@ def getResponse(connectionId, jsonBody):
                         store_document_for_opensearch(bedrock_embeddings, docs, documentId)
 
                 print('processing time: ', str(time.time() - start_time))
-                        
+        
+        msg = msg.replace(" ","&nbsp;")                  
         sendResultMessage(connectionId, requestId, msg+reference)
         # print('msg+reference: ', msg+reference)
                          
