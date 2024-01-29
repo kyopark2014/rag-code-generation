@@ -82,6 +82,7 @@ cdk deploy --all
 
 아래와 같이 Output의 HtmlUpdateCommend을 붙여넣기 합니다. 
 
+![upload](https://github.com/kyopark2014/rag-code-generation/assets/52392004/13b3c2db-ab22-466f-8617-38334b583f0f)
 
 
 
