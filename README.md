@@ -154,7 +154,7 @@ def summary_of_code(llm, code):
 
 ### 코드 요약을 OpenSearch에 등록
 
-RAG의 Knowledge Store로 OpenSearch를 이용합니다. [2023년 10월에 한국어, 일본어, 중국어에 대한 새로운 언어 분석기 플러그인이 OpenSearch에 추가](https://aws.amazon.com/ko/about-aws/whats-new/2023/10/amazon-opensearch-four-language-analyzers/) 되었으므로, 본 게시글에서는 [Nori 분석기를 이용하여 Lexical 검색](https://github.com/aws-samples/aws-ai-ml-workshop-kr/blob/master/genai/aws-gen-ai-kr/20_applications/02_qa_chatbot/01_preprocess_docs/01_2_load_json_kr_docs_opensearch.ipynb)을 이용합니다. S3에 저장된 코드를 삭제하면 OpenSearch의 Document도 같이 삭제되어야 합니다. 따라서, 아래와 같이 DocumentID는 언어 타입에 대한 "py"와 파일명을 활용하여 생성하였습니다. 
+RAG의 Knowledge Store로 OpenSearch를 이용합니다. [2023년 10월에 한국어, 일본어, 중국어에 대한 새로운 언어 분석기 플러그인이 OpenSearch에 추가](https://aws.amazon.com/ko/about-aws/whats-new/2023/10/amazon-opensearch-four-language-analyzers/) 되었으므로, 본 게시글에서는 [Nori 분석기를 이용하여 Lexical 검색](https://github.com/aws-samples/aws-ai-ml-workshop-kr/blob/master/genai/aws-gen-ai-kr/20_applications/02_qa_chatbot/01_preprocess_docs/01_2_load_json_kr_docs_opensearch.ipynb)을 이용합니다. S3에 저장된 코드를 삭제하면 OpenSearch의 Document도 같이 삭제되어야 합니다. 따라서, 아래와 같이 documentId는 언어 타입에 대한 "py"와 파일명을 활용하여 생성하였습니다. 
 
 ```python
 if file_type == 'py':
@@ -258,7 +258,7 @@ def store_document_for_opensearch_with_nori(bedrock_embeddings, docs, documentId
 
 ### RAG의 Knowledge Store를 이용하여 관련 Code 검색
 
-사용자가 질문(Query)를 입력하면, RAG의 Knowledge Store로 부터 관련된 코드를 조회합니다. 이때, OpenSearch로 vector와 lexical search를 하여 얻어진 결과들을 병합한 후에, priority search를 이용하여, 관련도에 따라 정렬합니다. 본 게시글에서는 관련된 코드를 검색할때 Zero shot을 이용하므로, 구현하려는 코드에 대한 명확한 지시를 내려야 정확한 결과를 얻을 수 있습니다. 만약, 대화이력(message history)까지 고려하여 코드를 생성하고자 한다면, [한영 동시 검색 및 인터넷 검색을 활용하여 RAG를 편리하게 활용하기](https://aws.amazon.com/ko/blogs/tech/rag-enhanced-searching/)와 같이 Prompt를 이용하여 새로운 질문(Revised Question)을 생성할 수 있습니다. 
+사용자가 질문(Query)를 입력하면, RAG의 Knowledge Store로 부터 관련된 코드를 조회합니다. 이때, OpenSearch로 vector와 lexical search를 하여 얻어진 결과들을 병합한 후에, priority search를 이용하여, 관련도에 따라 정렬합니다. 본 게시글에서는 관련된 코드를 검색할 때 Zero shot을 이용하므로, 구현하려는 코드에 대한 명확한 지시를 내려야 정확한 결과를 얻을 수 있습니다. 만약, 대화이력(message history)까지 고려하여 코드를 생성하고자 한다면, [한영 동시 검색 및 인터넷 검색을 활용하여 RAG를 편리하게 활용하기](https://aws.amazon.com/ko/blogs/tech/rag-enhanced-searching/)와 같이 Prompt를 이용하여 새로운 질문(Revised Question)을 생성할 수 있습니다. 
 
 ```python
 def retrieve_from_vectorstore(query, top_k, rag_type):
@@ -462,7 +462,7 @@ def get_reference(docs):
 
 ## 실행결과
 
-[lambda_function.py](https://github.com/kyopark2014/rag-code-generation/blob/main/lambda-chat-ws/lambda_function.py)을 다운로드 후에 채팅창 아래의 파일 아이콘을 선택하여 업로드합니다. lambda_function.py가 가지고 있는 함수들에 대한 요약을 보여줍니다.
+[lambda_function.py](https://raw.githubusercontent.com/kyopark2014/rag-code-generation/main/lambda-chat-ws/lambda_function.py)을 다운로드 후에 채팅창 아래의 파일 아이콘을 선택하여 업로드합니다. lambda_function.py가 가지고 있는 함수들에 대한 요약을 보여줍니다.
 
 ![image](https://github.com/kyopark2014/rag-code-generation/assets/52392004/44b752de-f1fb-43e9-a6f6-e7ade65dbcb8)
 
