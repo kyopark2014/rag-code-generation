@@ -67,7 +67,7 @@ cdk deploy --all
 
 설치가 완료되면 아래와 같은 Output이 나옵니다. 
 
-![noname](https://github.com/kyopark2014/rag-code-generation/assets/52392004/87303834-9917-47fa-8f75-2aa654a486a7)
+![output](https://github.com/kyopark2014/rag-code-generation/assets/52392004/6adaca25-6314-4f26-825a-61b433ce8873)
 
 
 8) Nori Plug-in 설치합니다.
