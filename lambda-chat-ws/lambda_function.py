@@ -553,7 +553,6 @@ def readStreamMsg(connectionId, requestId, stream):
         for event in stream:
             #print('event: ', event)
             msg = msg + event
-            msg = msg.replace(" ","&nbsp;")  
 
             result = {
                 'request_id': requestId,
@@ -602,7 +601,7 @@ def priority_search(query, relevant_codes, bedrock_embeddings):
 
         relevant_codes[order]['assessed_score'] = int(assessed_score)
 
-        if assessed_score < 400:
+        if assessed_score < 300:
             docs.append(relevant_codes[order])    
     # print('selected docs: ', docs)
 
@@ -887,6 +886,7 @@ def get_answer_using_ConversationChain(text, conversation, conv_type, connection
         stream = conversation.predict(input=text)
         #print('stream: ', stream)                    
         msg = readStreamMsg(connectionId, requestId, stream)
+        msg = msg.replace(" ","&nbsp;")  
     except Exception:
         err_msg = traceback.format_exc()
         print('error message: ', err_msg)        
