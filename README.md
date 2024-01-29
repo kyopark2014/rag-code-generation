@@ -101,9 +101,7 @@ def summarize_process_for_relevent_code(conn, llm, code, object, bedrock_region)
         doc = ""    
         if start != -1:      
             function_name = code[start+1:end]
-                            
             summary = summary_of_code(llm, code)
-            print(f"summary ({bedrock_region}): {summary}")
             
             if summary[:len(function_name)]==function_name:
                 summary = summary[summary.find('\n')+1:len(summary)]
@@ -156,7 +154,7 @@ def summary_of_code(llm, code):
 
 ### 코드 요약을 OpenSearch에 등록
 
-RAG의 Knowledge Store로 OpenSearch를 이용합니다. [2023년 10월에 한국어, 일본어, 중국어에 대한 새로운 언어 분석기 플러그인이 OpenSearch에 추가](https://aws.amazon.com/ko/about-aws/whats-new/2023/10/amazon-opensearch-four-language-analyzers/) 되었으므로, 본 게시글에서는 [Nori 분석기를 이용하여 Lexical 검색](https://github.com/aws-samples/aws-ai-ml-workshop-kr/blob/master/genai/aws-gen-ai-kr/20_applications/02_qa_chatbot/01_preprocess_docs/01_2_load_json_kr_docs_opensearch.ipynb)을 이용합니다. S3에 저장된 코드를 삭제하면 OpenSearch의 Document도 같이 삭제되어야 합니다. 따라서, 아래와 같이 DocumentID는 언어 타입에 대한 "py"와 파일명을 활용하여 생성합니다. 
+RAG의 Knowledge Store로 OpenSearch를 이용합니다. [2023년 10월에 한국어, 일본어, 중국어에 대한 새로운 언어 분석기 플러그인이 OpenSearch에 추가](https://aws.amazon.com/ko/about-aws/whats-new/2023/10/amazon-opensearch-four-language-analyzers/) 되었으므로, 본 게시글에서는 [Nori 분석기를 이용하여 Lexical 검색](https://github.com/aws-samples/aws-ai-ml-workshop-kr/blob/master/genai/aws-gen-ai-kr/20_applications/02_qa_chatbot/01_preprocess_docs/01_2_load_json_kr_docs_opensearch.ipynb)을 이용합니다. S3에 저장된 코드를 삭제하면 OpenSearch의 Document도 같이 삭제되어야 합니다. 따라서, 아래와 같이 DocumentID는 언어 타입에 대한 "py"와 파일명을 활용하여 생성하였습니다. 
 
 ```python
 if file_type == 'py':
@@ -253,7 +251,6 @@ def store_document_for_opensearch_with_nori(bedrock_embeddings, docs, documentId
             http_auth=(opensearch_account, opensearch_passwd),
         )
         response = vectorstore.add_documents(docs, bulk_size = 2000)
-        print('response of adding documents: ', response)
     except Exception:
         err_msg = traceback.format_exc()
         print('error message: ', err_msg)                
@@ -261,7 +258,7 @@ def store_document_for_opensearch_with_nori(bedrock_embeddings, docs, documentId
 
 ### RAG의 Knowledge Store를 이용하여 관련 Code 검색
 
-사용자가 질문(Query)를 입력하면, RAG로 관련된 코드를 조회합니다. 이때, OpenSearch로 vector와 lexical search를 하여 두개의 결과를 병합하고, priority search를 통해 관련된 코드의 우선 순위를 조정합니다. 본 게시글에서는 관련된 코드를 검색할때 Zero shot을 이용하므로, 와 같이 구현하려는 코드에 대한 명확한 지시를 내려야 좀 더 정확한 결과를 얻을 수 있습니다. 만약, 대화이력을 고려하여 코드를 생성하고자 한다면, [한영 동시 검색 및 인터넷 검색을 활용하여 RAG를 편리하게 활용하기](https://aws.amazon.com/ko/blogs/tech/rag-enhanced-searching/)와 같이 Prompt를 이용하여 새로운 질문(Revised Question)을 생성할 수 있습니다. 
+사용자가 질문(Query)를 입력하면, RAG의 Knowledge Store로 부터 관련된 코드를 조회합니다. 이때, OpenSearch로 vector와 lexical search를 하여 얻어진 결과들을 병합한 후에, priority search를 이용하여, 관련도에 따라 정렬합니다. 본 게시글에서는 관련된 코드를 검색할때 Zero shot을 이용하므로, 구현하려는 코드에 대한 명확한 지시를 내려야 정확한 결과를 얻을 수 있습니다. 만약, 대화이력(message history)까지 고려하여 코드를 생성하고자 한다면, [한영 동시 검색 및 인터넷 검색을 활용하여 RAG를 편리하게 활용하기](https://aws.amazon.com/ko/blogs/tech/rag-enhanced-searching/)와 같이 Prompt를 이용하여 새로운 질문(Revised Question)을 생성할 수 있습니다. 
 
 ```python
 def retrieve_from_vectorstore(query, top_k, rag_type):
@@ -356,9 +353,9 @@ def retrieve_from_vectorstore(query, top_k, rag_type):
 ```
 
 
-### 관련된 Code를 가지고 Context를 생성
+### 관련된 코드들을 가지고 Context를 생성
 
-Context에 관련된 문서를 넣어서 아래와 같은 prompt를 이용하여 질문에 맞는 코드를 생성합니다.
+관련된 코드들를 모아서 Context를 만든 후에, 아래와 같이 prompt를 이용하여 질문에 맞는 코드를 생성합니다.
 
 ```python
 selected_relevant_codes = []
@@ -380,7 +377,7 @@ except Exception:
     print('error message: ', err_msg)
 ```
 
-Faiss의 Similarity Search를 이용하여 관련도 기준으로 정렬합니다. 관련된 문서
+Faiss의 Similarity Search를 이용하여 관련도 기준으로 정렬합니다. 여기서는 300이상의 관련도(assessed_score)를 가지는 코드들을 RAG에서 활용하고 있습니다. 이 값은 RAG에 저장되는 소스 코드의 형태에 따라 적절하게 조정하여 사용합니다. 
        
 ```python
 def priority_search(query, relevant_codes, bedrock_embeddings):
@@ -409,23 +406,20 @@ def priority_search(query, relevant_codes, bedrock_embeddings):
 
     docs = []
     for i, document in enumerate(rel_documents):
-        print(f'## Document(priority_search) {i+1}: {document}')
-
         order = document[0].metadata['order']
         name = document[0].metadata['name']
         assessed_score = document[1]
-        print(f"{order} {name}: {assessed_score}")
 
         relevant_codes[order]['assessed_score'] = int(assessed_score)
 
-        if assessed_score < 400:
+        if assessed_score < 300:
             docs.append(relevant_codes[order])    
     return docs
 ```
 
-### Code의 Reference 
+### 코드 레퍼런스
 
-코드를 사용할때 원본 코드, 참고한 코드 정보를 함께 보여주어서, 참조한 코드의 활용도를 높입니다.
+생성된 코드가 참고한 코드 설명 및 관련 코드를 함께 보여주면, 생성된 코드를 활용할 때 유용하게 사용할 수 있습니다. 따라서 아래와 같이 원본 코드에 대한 링크, 관련도, 코드 설명, 관련 코드를 레퍼런스로 보여줍니다.
 
 ```python
 def get_reference(docs):
@@ -436,11 +430,8 @@ def get_reference(docs):
         
         excerpt = excerpt.replace('\n','\\n')
         code = code.replace('\n','\\n')
-        print('reference_doc: ', json.dumps(doc))
         
         if doc['rag_type'][:10] == 'opensearch':
-            print(f'## Document(get_reference) {i+1}: {doc}')
-                
             page = ""
             if "document_attributes" in doc['metadata']:
                 if "_excerpt_page_number" in doc['metadata']['document_attributes']:
