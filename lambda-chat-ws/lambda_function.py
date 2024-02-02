@@ -296,22 +296,19 @@ def store_document_for_opensearch_with_nori(bedrock_embeddings, docs, documentId
             'properties': {
                 'metadata': {
                     'properties': {
-                        'source' : {'type': 'keyword'},                    
-                        'last_updated': {'type': 'date'},
-                        'project': {'type': 'keyword'},
-                        'seq_num': {'type': 'long'},
-                        'title': {'type': 'text'},  # For full-text search
-                        'url': {'type': 'text'},  # For full-text search
+                        'source': {'type': 'text'},
+                        'title' : {'type': 'text'},
+                        'excerpt': {'type': 'text'},
+                        'code': {'type': 'text'},
+                        'function_name': {'type': 'text'}
                     }
                 },            
                 'text': {
-                    'analyzer': 'my_analyzer',
-                    'search_analyzer': 'my_analyzer',
                     'type': 'text'
                 },
                 'vector_field': {
                     'type': 'knn_vector',
-                    'dimension': 1536  # Replace with your vector dimension
+                    'dimension': 1536  # titan embedding
                 }
             }
         }
@@ -722,14 +719,7 @@ def retrieve_from_vectorstore(query, top_k, rag_type):
                                     "text": {
                                         "query": query,
                                         "minimum_should_match": f'{min_match}%',
-                                        "operator":  "or",
-                                        # "fuzziness": "AUTO",
-                                        # "fuzzy_transpositions": True,
-                                        # "zero_terms_query": "none",
-                                        # "lenient": False,
-                                        # "prefix_length": 0,
-                                        # "max_expansions": 50,
-                                        # "boost": 1
+                                        "operator":  "or"
                                     }
                                 }
                             },
