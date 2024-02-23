@@ -8,21 +8,19 @@ import traceback
 import re
 from urllib import parse
 
+from botocore.config import Config
 from langchain.prompts import PromptTemplate
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.docstore.document import Document
 from langchain.chains.summarize import load_summarize_chain
-from langchain.llms.bedrock import Bedrock
 from langchain.chains import ConversationChain
 from langchain.memory import ConversationBufferWindowMemory
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
-from botocore.config import Config
 
-from langchain.vectorstores.faiss import FAISS
-from langchain.vectorstores.opensearch_vector_search import OpenSearchVectorSearch
-#from langchain.embeddings import BedrockEmbeddings
+from langchain_community.llms.bedrock import Bedrock
+from langchain_community.docstore.document import Document
+from langchain_community.vectorstores.faiss import FAISS
+from langchain_community.vectorstores.opensearch_vector_search import OpenSearchVectorSearch
 from langchain_community.embeddings import BedrockEmbeddings
-from langchain.chains import LLMChain
 from multiprocessing import Process, Pipe
 from opensearchpy import OpenSearch
 
