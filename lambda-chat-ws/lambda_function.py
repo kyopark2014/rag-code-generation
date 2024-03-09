@@ -437,8 +437,8 @@ def load_code(file_type, s3_file_name):
 
     texts = text_splitter.split_text(contents) 
     
-    #for i, text in enumerate(texts):
-    #    print(f"Chunk #{i}: {text}")
+    for i, text in enumerate(texts):
+        print(f"Chunk #{i}: {text}")
                 
     return texts
 
@@ -1159,6 +1159,7 @@ def getResponse(connectionId, jsonBody):
 
             if file_type == 'py' or file_type == 'js':
                 codes = load_code(file_type, object)  # number of functions in the code
+                print('code: ', codes)
                 
                 docs = []
                 msg = ""
