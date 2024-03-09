@@ -268,6 +268,9 @@ def general_conversation(connectionId, requestId, chat, query):
         end_time_for_inference = time.time()
         time_for_inference = end_time_for_inference - start_time_for_inference
     
+    memory_chain.chat_memory.add_user_message(query)
+    memory_chain.chat_memory.add_ai_message(msg)
+    
     return msg
 
 
