@@ -536,6 +536,9 @@ attachFile.addEventListener('click', function(){
             else if(ext == 'py') {
                 contentType = 'text/x-python'
             }
+            else if(ext == 'js') {
+                contentType = 'application/javascript'
+            }
             console.log('contentType: ', contentType)
 
             let current = new Date();
@@ -588,7 +591,8 @@ attachFile.addEventListener('click', function(){
                                 "request_time": requestTime,
                                 "type": "document",
                                 "body": requestId+'/'+filename,
-                                "conv_type": conv_type
+                                "conv_type": conv_type,
+                                "code_type": ext
                             })
                         }
                         else if(xmlHttp.readyState == XMLHttpRequest.DONE && xmlHttp.status != 200) {
