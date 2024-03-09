@@ -273,7 +273,6 @@ def general_conversation(connectionId, requestId, chat, query):
     
     return msg
 
-
 def store_document_for_faiss(docs, vectorstore_faiss):
     print('store document into faiss')    
     vectorstore_faiss.add_documents(docs)       
@@ -1147,7 +1146,7 @@ def getResponse(connectionId, jsonBody):
             file_type = object[object.rfind('.')+1:len(object)]
             print('file_type: ', file_type)
 
-            if file_type == 'py':
+            if file_type == 'py' or file_type == 'js':
                 codes = load_code(file_type, object)  # number of functions in the code
                 
                 docs = []
