@@ -705,7 +705,7 @@ def retrieve_from_vectorstore(query, top_k, rag_type):
             query = query,
             k = top_k,
         )
-        #print('(opensearch score) relevant_documents: ', relevant_documents)
+        print('relevant_documents: ', relevant_documents)
 
         for i, document in enumerate(relevant_documents):
             print(f'## Document(opensearch-vector) {i+1}: {document}')
@@ -1234,7 +1234,7 @@ def getResponse(connectionId, jsonBody):
                 # msg = "uploaded file: "+object
                 msg = f"{file_type} is not supported"
                                 
-            if conv_type == 'qa':
+            if conv_type == 'qa' or file_type == 'js':
                 start_time = time.time()
                 
                 if file_type == 'py':
