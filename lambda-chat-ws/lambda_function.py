@@ -442,32 +442,43 @@ def load_code(file_type, s3_file_name):
                 
     return texts
 
-def summary_of_code(llm, code):
-    PROMPT = """\n\nHuman: 다음의 <article> tag에는 python code가 있습니다. 각 함수의 기능과 역할을 자세하게 500자 이내로 설명하세요. 결과는 <result> tag를 붙여주세요.
-           
-    <article>
-    {input}
-    </article>
-                        
-    Assistant:"""
- 
-    try:
-        summary = llm(PROMPT.format(input=code))
-        #print('summary: ', summary)
+def summary_of_code(chat, code, mode):
+    if mode == 'py':
+        system = (
+            "다음의 <article> tag에는 python code가 있습니다. code의 전반적인 목적에 대해 설명하고, 각 함수의 기능과 역할을 자세하게 한국어 500자 이내로 설명하세요."
+        )
+    elif mode == 'js':
+        system = (
+            "다음의 <article> tag에는 node.js code가 있습니다. code의 전반적인 목적에 대해 설명하고, 각 함수의 기능과 역할을 자세하게 한국어 500자 이내로 설명하세요."
+        )
+    else:
+        system = (
+            "다음의 <article> tag에는 code가 있습니다. code의 전반적인 목적에 대해 설명하고, 각 함수의 기능과 역할을 자세하게 한국어 500자 이내로 설명하세요."
+        )
+    
+    human = "<article>{code}</article>"
+    
+    prompt = ChatPromptTemplate.from_messages([("system", system), ("human", human)])
+    print('prompt: ', prompt)
+    
+    chain = prompt | chat    
+    try: 
+        result = chain.invoke(
+            {
+                "code": code
+            }
+        )
+        
+        summary = result.content
+        print('result of code summarization: ', summary)
     except Exception:
         err_msg = traceback.format_exc()
-        print('error message: ', err_msg)        
-        raise Exception ("Not able to summary the message")
-   
-    summary = summary[summary.find('<result>')+9:len(summary)-10] # remove <result> tag
+        print('error message: ', err_msg)                    
+        raise Exception ("Not able to request to LLM")
     
-    summary = summary.replace('\n\n', '\n') 
-    if summary[0] == '\n':
-        summary = summary[1:len(summary)]
-   
     return summary
 
-def summarize_process_for_relevent_code(conn, llm, code, object, file_type, bedrock_region):
+def summarize_process_for_relevent_code(conn, chat, code, object, file_type, bedrock_region):
     try: 
         start = code.find('\ndef ')
         end = code.find(':')                    
@@ -478,7 +489,7 @@ def summarize_process_for_relevent_code(conn, llm, code, object, file_type, bedr
             function_name = code[start+1:end]
             # print('function_name: ', function_name)
                             
-            summary = summary_of_code(llm, code, file_type)
+            summary = summary_of_code(chat, code, file_type)
             print(f"summary ({bedrock_region}): {summary}")
             
             #print('first line summary: ', summary[:len(function_name)])
@@ -1165,7 +1176,7 @@ def getResponse(connectionId, jsonBody):
                             function_name = code[start+1:end]
                             # print('function_name: ', function_name)
                                             
-                            summary = summary_of_code(chat, code, file_type)                        
+                            summary = summary_of_code(chat, code, file_type)
                                 
                             if summary[:len(function_name)]==function_name:
                                 summary = summary[summary.find('\n')+1:len(summary)]
@@ -1224,7 +1235,7 @@ def getResponse(connectionId, jsonBody):
                          
         if reference: # Summarize the generated code 
             generated_code = msg[msg.find('<result>')+9:len(msg)-10]
-            generated_code_summary = summary_of_code(llm, generated_code)    
+            generated_code_summary = summary_of_code(chat, generated_code, file_type)    
             msg += f'\n\n[생성된 코드 설명]\n{generated_code_summary}'
             msg = msg.replace('\n\n\n', '\n\n') 
             
