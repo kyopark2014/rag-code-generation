@@ -479,27 +479,28 @@ def summary_of_code(chat, code, mode):
     return summary
 
 def summarize_process_for_relevent_code(conn, chat, code, object, file_type, bedrock_region):
-    try:         
-        function_name = ""
-        if file_type == 'py':
+    try: 
+        if code.find('\ndef ') != -1:
             start = code.find('\ndef ')
-            end = code.find(':')                    
-            # print(f'start: {start}, end: {end}')            
-            function_name = code[start+1:end]
-            
-        elif file_type == 'js':
+            end = code.find(':')   
+        elif code.find('\nfunction ') != -1:
             start = code.find('\nfunction ')
-            if start == -1:
-                if code.find('\nexports.handler '):
-                    function_name = 'exports.handler'
-            else:                
-                end = code.find('(')    
-                function_name = code[start+1:end]
-                
-        print('function_name: ', function_name)
-                        
+            end = code.find('(')   
+        elif code.find('\nexports.') != -1:
+            start = code.find('\nexports.')
+            end = code.find(' =')         
+        else:
+            start = -1
+            end = -1
+              
+        print('code: ', code)                             
+        print(f'start: {start}, end: {end}')
+                    
         doc = ""    
-        if function_name:      
+        if start != -1:      
+            function_name = code[start+1:end]
+            # print('function_name: ', function_name)
+                            
             summary = summary_of_code(chat, code, file_type)
             print(f"summary ({bedrock_region}): {summary}")
             
@@ -1180,9 +1181,21 @@ def getResponse(connectionId, jsonBody):
                     
                 else:
                     for code in codes:
-                        start = code.find('\ndef ')
-                        end = code.find(':')                    
-                        # print(f'start: {start}, end: {end}')
+                        if code.find('\ndef ') != -1:
+                            start = code.find('\ndef ')
+                            end = code.find(':')   
+                        elif code.find('\nfunction ') != -1:
+                            start = code.find('\nfunction ')
+                            end = code.find('(')   
+                        elif code.find('\nexports.') != -1:
+                            start = code.find('\nexports.')
+                            end = code.find(' =')         
+                        else:
+                            start = -1
+                            end = -1
+                            
+                        print('code: ', code)                             
+                        print(f'start: {start}, end: {end}')
                         
                         if start != -1:      
                             function_name = code[start+1:end]
