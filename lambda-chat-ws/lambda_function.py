@@ -479,16 +479,27 @@ def summary_of_code(chat, code, mode):
     return summary
 
 def summarize_process_for_relevent_code(conn, chat, code, object, file_type, bedrock_region):
-    try: 
-        start = code.find('\ndef ')
-        end = code.find(':')                    
-        # print(f'start: {start}, end: {end}')
-                    
-        doc = ""    
-        if start != -1:      
+    try:         
+        function_name = ""
+        if file_type == 'py':
+            start = code.find('\ndef ')
+            end = code.find(':')                    
+            # print(f'start: {start}, end: {end}')            
             function_name = code[start+1:end]
-            # print('function_name: ', function_name)
-                            
+            
+        elif file_type == 'js':
+            start = code.find('\nfunction ')
+            if start == -1:
+                if code.find('\nexports.handler '):
+                    function_name = 'exports.handler'
+            else:                
+                end = code.find('(')    
+                function_name = code[start+1:end]
+                
+        print('function_name: ', function_name)
+                        
+        doc = ""    
+        if function_name:      
             summary = summary_of_code(chat, code, file_type)
             print(f"summary ({bedrock_region}): {summary}")
             
