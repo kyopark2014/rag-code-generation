@@ -61,7 +61,7 @@ def load_code(file_type, s3_file_name):
  함수별로 Chunk 되었으므로 LLM을 이용하여 요약을 수행합니다. 이때 수행 속도를 위해 Multi Thread와 Multi-LLM을 활용합니다. 여러 리전의 LLM을 활용하기 위해 LLM profile으로 여러 리전에 대한 LLM 모델을 설정합니다. 아래와 같이 Chunk된 문서는 파일 이름(name), 다운로드 경로(uri), 원본 코드(code)와 각 함수의 이름(function_name)을 metadata로 가지고 있습니다. 
  
 ```python
- def summarize_relevant_codes_using_parallel_processing(codes, object):
+def summarize_relevant_codes_using_parallel_processing(codes, object, file_type):
     selected_LLM = 0
     relevant_codes = []    
     processes = []
@@ -70,10 +70,10 @@ def load_code(file_type, s3_file_name):
         parent_conn, child_conn = Pipe()
         parent_connections.append(parent_conn)
             
-        llm = get_llm(profile_of_LLMs, selected_LLM)
+        chat = get_chat(profile_of_LLMs, selected_LLM)
         bedrock_region = profile_of_LLMs[selected_LLM]['bedrock_region']
 
-        process = Process(target=summarize_process_for_relevent_code, args=(child_conn, llm, code, object, bedrock_region))
+        process = Process(target=summarize_process_for_relevent_code, args=(child_conn, chat, code, object, file_type, bedrock_region))
         processes.append(process)
 
         selected_LLM = selected_LLM + 1
@@ -94,15 +94,30 @@ def load_code(file_type, s3_file_name):
     
     return relevant_codes
 
-def summarize_process_for_relevent_code(conn, llm, code, object, bedrock_region):
+def summarize_process_for_relevent_code(conn, chat, code, object, file_type, bedrock_region):
     try: 
-        start = code.find('\ndef ')
-        end = code.find(':')                    
+        if code.find('\ndef ') != -1:
+            start = code.find('\ndef ')
+            end = code.find(':')   
+        elif code.find('\nfunction ') != -1:
+            start = code.find('\nfunction ')
+            end = code.find('(')   
+        elif code.find('\nexports.') != -1:
+            start = code.find('\nexports.')
+            end = code.find(' =')         
+        else:
+            start = -1
+            end = -1
+              
+        print('code: ', code)                             
+        print(f'start: {start}, end: {end}')
                     
         doc = ""    
         if start != -1:      
             function_name = code[start+1:end]
-            summary = summary_of_code(llm, code)
+                            
+            summary = summary_of_code(chat, code, file_type)
+            print(f"summary ({bedrock_region}): {summary}")
             
             if summary[:len(function_name)]==function_name:
                 summary = summary[summary.find('\n')+1:len(summary)]
@@ -128,28 +143,40 @@ def summarize_process_for_relevent_code(conn, llm, code, object, bedrock_region)
 코드를 요약하기 위해 Prompt를 활용합니다. 요약한 결과만을 추출하기 위하여 <result> tag를 활용하였고, 불필요한 줄바꿈은 아래와 같이 삭제하였습니다. 
 
 ```python
-def summary_of_code(llm, code):
-    PROMPT = """\n\nHuman: 다음의 <article> tag에는 python code가 있습니다. 각 함수의 기능과 역할을 자세하게 500자 이내로 설명하세요. 결과는 <result> tag를 붙여주세요.
-           
-    <article>
-    {input}
-    </article>
-                        
-    Assistant:"""
- 
-    try:
-        summary = llm(PROMPT.format(input=code))
+def summary_of_code(chat, code, mode):
+    if mode == 'py':
+        system = (
+            "다음의 <article> tag에는 python code가 있습니다. code의 전반적인 목적에 대해 설명하고, 각 함수의 기능과 역할을 자세하게 한국어 500자 이내로 설명하세요."
+        )
+    elif mode == 'js':
+        system = (
+            "다음의 <article> tag에는 node.js code가 있습니다. code의 전반적인 목적에 대해 설명하고, 각 함수의 기능과 역할을 자세하게 한국어 500자 이내로 설명하세요."
+        )
+    else:
+        system = (
+            "다음의 <article> tag에는 code가 있습니다. code의 전반적인 목적에 대해 설명하고, 각 함수의 기능과 역할을 자세하게 한국어 500자 이내로 설명하세요."
+        )
+    
+    human = "<article>{code}</article>"
+    
+    prompt = ChatPromptTemplate.from_messages([("system", system), ("human", human)])
+    print('prompt: ', prompt)
+    
+    chain = prompt | chat    
+    try: 
+        result = chain.invoke(
+            {
+                "code": code
+            }
+        )
+        
+        summary = result.content
+        print('result of code summarization: ', summary)
     except Exception:
         err_msg = traceback.format_exc()
-        print('error message: ', err_msg)        
-        raise Exception ("Not able to summary the message")
-   
-    summary = summary[summary.find('<result>')+9:len(summary)-10] # remove <result> tag
+        print('error message: ', err_msg)                    
+        raise Exception ("Not able to request to LLM")
     
-    summary = summary.replace('\n\n', '\n') 
-    if summary[0] == '\n':
-        summary = summary[1:len(summary)]
-   
     return summary
 ```
 
@@ -369,13 +396,49 @@ for document in selected_relevant_codes:
         code = document['metadata']['code']
         relevant_code = relevant_code + code + "\n\n"
 
-try:
-    isTyping(connectionId, requestId)
-    stream = llm(PROMPT.format(context = relevant_code, question = text))
-    msg = readStreamMsg(connectionId, requestId, stream)                    
-except Exception:
-    err_msg = traceback.format_exc()
-    print('error message: ', err_msg)
+msg = generate_code(connectionId, requestId, chat, text, relevant_code, code_type)
+
+def generate_code(connectionId, requestId, chat, text, context, mode):
+    if mode == 'py':    
+        system = (
+            """다음의 <context> tag안에는 질문과 관련된 python code가 있습니다. 주어진 예제를 참조하여 질문과 관련된 python 코드를 생성합니다. Assistant의 이름은 서연입니다. 
+            
+            <context>
+            {context}
+            </context>"""
+        )
+    elif mode == 'js':
+        system = (
+            """다음의 <context> tag안에는 질문과 관련된 node.js code가 있습니다. 주어진 예제를 참조하여 질문과 관련된 node.js 코드를 생성합니다. Assistant의 이름은 서연입니다. 
+            
+            <context>
+            {context}
+            </context>"""
+        )
+    
+    human = "<context>{text}</context>"
+    
+    prompt = ChatPromptTemplate.from_messages([("system", system), ("human", human)])
+    print('prompt: ', prompt)
+    
+    chain = prompt | chat    
+    try: 
+        isTyping(connectionId, requestId)  
+        stream = chain.invoke(
+            {
+                "context": context,
+                "text": text
+            }
+        )
+        
+        geenerated_code = readStreamMsg(connectionId, requestId, stream.content)                              
+        geenerated_code = stream.content        
+    except Exception:
+        err_msg = traceback.format_exc()
+        print('error message: ', err_msg)                    
+        raise Exception ("Not able to request to LLM")
+    
+    return geenerated_code
 ```
 
 Faiss의 Similarity Search를 이용하여 관련도 기준으로 정렬합니다. 여기서는 300이상의 관련도(assessed_score)를 가지는 코드들을 RAG에서 활용하고 있습니다. 이 값은 RAG에 저장되는 소스 코드의 형태에 따라 적절하게 조정하여 사용합니다. 
@@ -431,8 +494,11 @@ def get_reference(docs):
         
         excerpt = excerpt.replace('\n','\\n')
         code = code.replace('\n','\\n')
+        print('reference_doc: ', json.dumps(doc))
         
         if doc['rag_type'][:10] == 'opensearch':
+            print(f'## Document(get_reference) {i+1}: {doc}')
+                
             page = ""
             if "document_attributes" in doc['metadata']:
                 if "_excerpt_page_number" in doc['metadata']['document_attributes']:
