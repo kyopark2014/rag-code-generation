@@ -1055,6 +1055,10 @@ def getResponse(connectionId, jsonBody):
     code_type = jsonBody['code_type']  # code type
     print('code Type: ', code_type)
     
+    object = body
+    file_type = object[object.rfind('.')+1:len(object)]
+    print('file_type: ', file_type)
+    
     global vectorstore_opensearch, enableReference
     global map_chain, memory_chain, isReady, selected_LLM
 
@@ -1165,10 +1169,6 @@ def getResponse(connectionId, jsonBody):
         elif type == 'document':
             isTyping(connectionId, requestId)
             
-            object = body
-            file_type = object[object.rfind('.')+1:len(object)]
-            print('file_type: ', file_type)
-
             if file_type == 'py' or file_type == 'js':
                 codes = load_code(file_type, object)  # number of functions in the code
                 print('code: ', codes)
