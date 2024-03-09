@@ -577,7 +577,7 @@ attachFile.addEventListener('click', function(){
                         if (xmlHttp.readyState == XMLHttpRequest.DONE && xmlHttp.status == 200 ) {
                             console.log(xmlHttp.responseText);
 
-                            if(conversationType=='qa') {
+                            if(conversationType=='qa-python' || conversationType=='qa-nodejs') {
                                 conv_type = 'qa'
                             }
                             else {
