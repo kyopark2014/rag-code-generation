@@ -294,8 +294,14 @@ function onSend(e) {
         let requestId = uuidv4();
         addSentMessage(requestId, timestr, message.value);
         
-        if(conversationType=='qa') {
+        let code_type = ""
+        if(conversationType=='qa-python') {
             conv_type = 'qa'
+            code_type = 'py'
+        }
+        if(conversationType=='qa-nodejs') {
+            conv_type = 'qa'
+            code_type = 'js'
         }
         else {
             conv_type = 'normal'
@@ -307,7 +313,8 @@ function onSend(e) {
             "request_time": requestTime,        
             "type": "text",
             "body": message.value,
-            "conv_type": conv_type
+            "conv_type": conv_type,
+            "code_type": code_type
         })
         
         sentTime.put(requestId, current);

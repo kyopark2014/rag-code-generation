@@ -9,20 +9,20 @@ import re
 from urllib import parse
 
 from botocore.config import Config
-from langchain.prompts import PromptTemplate
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.chains.summarize import load_summarize_chain
-from langchain.chains import ConversationChain
 from langchain.memory import ConversationBufferWindowMemory
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 
-from langchain_community.llms.bedrock import Bedrock
 from langchain_community.docstore.document import Document
 from langchain_community.vectorstores.faiss import FAISS
 from langchain_community.vectorstores.opensearch_vector_search import OpenSearchVectorSearch
 from langchain_community.embeddings import BedrockEmbeddings
 from multiprocessing import Process, Pipe
 from opensearchpy import OpenSearch
+
+from langchain_community.chat_models import BedrockChat
+from langchain_core.prompts import MessagesPlaceholder, ChatPromptTemplate
 
 s3 = boto3.client('s3')
 s3_bucket = os.environ.get('s3_bucket') # bucket name
@@ -35,6 +35,7 @@ isReady = False
 opensearch_account = os.environ.get('opensearch_account')
 opensearch_passwd = os.environ.get('opensearch_passwd')
 enableReference = os.environ.get('enableReference', 'false')
+debugMessageMode = os.environ.get('debugMessageMode', 'false')
 opensearch_url = os.environ.get('opensearch_url')
 path = os.environ.get('path')
 doc_prefix = s3_prefix+'/'
@@ -93,12 +94,13 @@ map_chat = dict() # For general conversation
 
 
 # Multi-LLM
-def get_llm(profile_of_LLMs, selected_LLM):
+def get_chat(profile_of_LLMs, selected_LLM):
     profile = profile_of_LLMs[selected_LLM]
     bedrock_region =  profile['bedrock_region']
     modelId = profile['model_id']
     print(f'LLM: {selected_LLM}, bedrock_region: {bedrock_region}, modelId: {modelId}')
-        
+    maxOutputTokens = int(profile['maxOutputTokens'])
+                          
     # bedrock   
     boto3_bedrock = boto3.client(
         service_name='bedrock-runtime',
@@ -109,15 +111,49 @@ def get_llm(profile_of_LLMs, selected_LLM):
             }            
         )
     )
-    parameters = get_parameter(profile['model_type'], int(profile['maxOutputTokens']))
+    parameters = {
+        "max_tokens":maxOutputTokens,     
+        "temperature":0.1,
+        "top_k":250,
+        "top_p":0.9,
+        "stop_sequences": [HUMAN_PROMPT]
+    }
     # print('parameters: ', parameters)
 
-    # langchain for bedrock
-    llm = Bedrock(
-        model_id=modelId, 
+    chat = BedrockChat(
+        model_id=modelId,
         client=boto3_bedrock, 
-        model_kwargs=parameters)
-    return llm
+        streaming=True,
+        callbacks=[StreamingStdOutCallbackHandler()],
+        model_kwargs=parameters,
+    )        
+    
+    return chat
+
+def get_embedding(profile_of_LLMs, selected_LLM):
+    profile = profile_of_LLMs[selected_LLM]
+    bedrock_region =  profile['bedrock_region']
+    modelId = profile['model_id']
+    print(f'Embedding: {selected_LLM}, bedrock_region: {bedrock_region}, modelId: {modelId}')
+    
+    # bedrock   
+    boto3_bedrock = boto3.client(
+        service_name='bedrock-runtime',
+        region_name=bedrock_region,
+        config=Config(
+            retries = {
+                'max_attempts': 30
+            }            
+        )
+    )
+    
+    bedrock_embedding = BedrockEmbeddings(
+        client=boto3_bedrock,
+        region_name = bedrock_region,
+        model_id = 'amazon.titan-embed-text-v1' 
+    )  
+    
+    return bedrock_embedding
 
 def sendMessage(id, body):
     try:
@@ -170,34 +206,72 @@ def isKorean(text):
         print('Not Korean: ', word_kor)
         return False
 
-def get_prompt_template(query, conv_type):    
-    if conv_type == "normal": # for General Conversation
-        prompt_template = """\n\nHuman: 다음의 <history>는 Human과 Assistant의 친근한 이전 대화입니다. Assistant은 상황에 맞는 구체적인 세부 정보를 충분히 제공합니다. Assistant의 이름은 서연이고, 모르는 질문을 받으면 솔직히 모른다고 말합니다.
-
-        <history>
-        {history}
-        </history>            
-
-        <question>            
-        {input}
-        </question>
+def general_conversation(connectionId, requestId, chat, query):
+    global time_for_inference, history_length, token_counter_history    
+    time_for_inference = history_length = token_counter_history = 0
+    
+    if debugMessageMode == 'true':  
+        start_time_for_inference = time.time()
+    
+    if isKorean(query)==True :
+        system = (
+            "다음의 Human과 Assistant의 친근한 이전 대화입니다. Assistant은 상황에 맞는 구체적인 세부 정보를 충분히 제공합니다. Assistant의 이름은 서연이고, 모르는 질문을 받으면 솔직히 모른다고 말합니다."
+        )
+    else: 
+        system = (
+            "Using the following conversation, answer friendly for the newest question. If you don't know the answer, just say that you don't know, don't try to make up an answer. You will be acting as a thoughtful advisor."
+        )
+    
+    human = "{input}"
+    
+    prompt = ChatPromptTemplate.from_messages([("system", system), MessagesPlaceholder(variable_name="history"), ("human", human)])
+    print('prompt: ', prompt)
+    
+    history = memory_chain.load_memory_variables({})["chat_history"]
+    print('memory_chain: ', history)
+                
+    chain = prompt | chat    
+    try: 
+        isTyping(connectionId, requestId)  
+        stream = chain.invoke(
+            {
+                "history": history,
+                "input": query,
+            }
+        )
+        msg = readStreamMsg(connectionId, requestId, stream.content)    
+                            
+        msg = stream.content
+        print('msg: ', msg)
+    except Exception:
+        err_msg = traceback.format_exc()
+        print('error message: ', err_msg)        
             
-        Assistant:"""
-    elif conv_type=='qa':  
-        #prompt_template = """\n\nHuman: 다음의 <context> tag안의 참고자료를 이용하여 상황에 맞는 구체적인 세부 정보를 충분히 제공합니다. Assistant의 이름은 서연이고, 모르는 질문을 받으면 솔직히 모른다고 말합니다.
-        prompt_template = """\n\nHuman: 다음의 <context> tag안에는 질문과 관련된 python code가 있습니다. 주어진 예제를 참조하여 질문과 관련된 python 코드를 생성합니다. Assistant의 이름은 서연입니다. 결과는 <result> tag를 붙여주세요.
+        sendErrorMessage(connectionId, requestId, err_msg)    
+        raise Exception ("Not able to request to LLM")
+
+    if debugMessageMode == 'true':  
+        chat_history = ""
+        for dialogue_turn in history:
+            #print('type: ', dialogue_turn.type)
+            #print('content: ', dialogue_turn.content)
             
-        <context>
-        {context}
-        </context>
+            dialog = f"{dialogue_turn.type}: {dialogue_turn.content}\n"            
+            chat_history = chat_history + dialog
+                
+        history_length = len(chat_history)
+        print('chat_history length: ', history_length)
+        
+        token_counter_history = 0
+        if chat_history:
+            token_counter_history = chat.get_num_tokens(chat_history)
+            print('token_size of history: ', token_counter_history)
+        
+        end_time_for_inference = time.time()
+        time_for_inference = end_time_for_inference - start_time_for_inference
+    
+    return msg
 
-        <question>            
-        {question}
-        </question>
-
-        Assistant:"""
-                    
-    return PromptTemplate.from_template(prompt_template)
 
 def store_document_for_faiss(docs, vectorstore_faiss):
     print('store document into faiss')    
@@ -227,7 +301,7 @@ def get_index_name(documentId):
     
     return index_name
 
-def store_document_for_opensearch(bedrock_embeddings, docs, documentId):
+def store_document_for_opensearch(bedrock_embedding, docs, documentId):
     index_name = get_index_name(documentId)
     
     delete_index_if_exist(index_name)
@@ -237,7 +311,7 @@ def store_document_for_opensearch(bedrock_embeddings, docs, documentId):
             index_name=index_name,  
             is_aoss = False,
             #engine="faiss",  # default: nmslib
-            embedding_function = bedrock_embeddings,
+            embedding_function = bedrock_embedding,
             opensearch_url = opensearch_url,
             http_auth=(opensearch_account, opensearch_passwd),
         )
@@ -250,7 +324,7 @@ def store_document_for_opensearch(bedrock_embeddings, docs, documentId):
 
     print('uploaded into opensearch')
 
-def store_document_for_opensearch_with_nori(bedrock_embeddings, docs, documentId):
+def store_document_for_opensearch_with_nori(bedrock_embedding, docs, documentId):
     index_name = get_index_name(documentId)
     
     delete_index_if_exist(index_name)
@@ -328,7 +402,7 @@ def store_document_for_opensearch_with_nori(bedrock_embeddings, docs, documentId
             index_name=index_name,  
             is_aoss = False,
             #engine="faiss",  # default: nmslib
-            embedding_function = bedrock_embeddings,
+            embedding_function = bedrock_embedding,
             opensearch_url = opensearch_url,
             http_auth=(opensearch_account, opensearch_passwd),
         )
@@ -393,7 +467,7 @@ def summary_of_code(llm, code):
    
     return summary
 
-def summarize_process_for_relevent_code(conn, llm, code, object, bedrock_region):
+def summarize_process_for_relevent_code(conn, llm, code, object, file_type, bedrock_region):
     try: 
         start = code.find('\ndef ')
         end = code.find(':')                    
@@ -404,7 +478,7 @@ def summarize_process_for_relevent_code(conn, llm, code, object, bedrock_region)
             function_name = code[start+1:end]
             # print('function_name: ', function_name)
                             
-            summary = summary_of_code(llm, code)
+            summary = summary_of_code(llm, code, file_type)
             print(f"summary ({bedrock_region}): {summary}")
             
             #print('first line summary: ', summary[:len(function_name)])
@@ -430,7 +504,7 @@ def summarize_process_for_relevent_code(conn, llm, code, object, bedrock_region)
     conn.send(doc)    
     conn.close()
 
-def summarize_relevant_codes_using_parallel_processing(codes, object):
+def summarize_relevant_codes_using_parallel_processing(codes, object, file_type):
     selected_LLM = 0
     relevant_codes = []    
     processes = []
@@ -439,10 +513,10 @@ def summarize_relevant_codes_using_parallel_processing(codes, object):
         parent_conn, child_conn = Pipe()
         parent_connections.append(parent_conn)
             
-        llm = get_llm(profile_of_LLMs, selected_LLM)
+        chat = get_chat(profile_of_LLMs, selected_LLM)
         bedrock_region = profile_of_LLMs[selected_LLM]['bedrock_region']
 
-        process = Process(target=summarize_process_for_relevent_code, args=(child_conn, llm, code, object, bedrock_region))
+        process = Process(target=summarize_process_for_relevent_code, args=(child_conn, chat, code, object, file_type, bedrock_region))
         processes.append(process)
 
         selected_LLM = selected_LLM + 1
@@ -462,45 +536,6 @@ def summarize_relevant_codes_using_parallel_processing(codes, object):
         process.join()
     
     return relevant_codes
-
-def get_summary(llm, texts):    
-    # check korean
-    pattern_hangul = re.compile('[\u3131-\u3163\uac00-\ud7a3]+') 
-    word_kor = pattern_hangul.search(str(texts))
-    print('word_kor: ', word_kor)
-    
-    if word_kor:
-        prompt_template = """\n\nHuman: 다음 텍스트를 요약해서 500자 이내로 설명하세오.
-        
-        <text>
-        {text}
-        </text
-        
-        Assistant:"""        
-    else:         
-        prompt_template = """\n\nHuman: Write a concise summary of the following:
-
-        {text}
-        
-        Assistant:"""
-    
-    PROMPT = PromptTemplate(template=prompt_template, input_variables=["text"])
-    chain = load_summarize_chain(llm, chain_type="stuff", prompt=PROMPT)
-
-    docs = [
-        Document(
-            page_content=t
-        ) for t in texts[:5]
-    ]
-    summary = chain.run(docs)
-    print('summary: ', summary)
-
-    if summary == '':  # error notification
-        summary = 'Fail to summarize the document. Try agan...'
-        return summary
-    else:
-        # return summary[1:len(summary)-1]   
-        return summary
     
 def load_chat_history(userId, allowTime, conv_type):
     dynamodb_client = boto3.client('dynamodb')
@@ -521,10 +556,11 @@ def load_chat_history(userId, allowTime, conv_type):
         type = item['type']['S']
 
         if type == 'text':
+            memory_chain.chat_memory.add_user_message(text)
             if len(msg) > MSG_LENGTH:
-                memory_chat.save_context({"input": text}, {"output": msg[:MSG_LENGTH]})
+                memory_chain.chat_memory.add_ai_message(msg[:MSG_LENGTH])                          
             else:
-                memory_chat.save_context({"input": text}, {"output": msg})
+                memory_chain.chat_memory.add_ai_message(msg) 
                 
 def getAllowTime():
     d = datetime.datetime.now() - datetime.timedelta(days = 2)
@@ -559,7 +595,7 @@ def readStreamMsg(connectionId, requestId, stream):
     # print('msg: ', msg)
     return msg
 
-def priority_search(query, relevant_codes, bedrock_embeddings):
+def priority_search(query, relevant_codes, bedrock_embedding):
     excerpts = []
     for i, doc in enumerate(relevant_codes):
         # print('doc: ', doc)
@@ -575,7 +611,7 @@ def priority_search(query, relevant_codes, bedrock_embeddings):
         )  
     # print('excerpts: ', excerpts)
 
-    embeddings = bedrock_embeddings
+    embeddings = bedrock_embedding
     vectorstore_confidence = FAISS.from_documents(
         excerpts,  # documents
         embeddings  # embeddings
@@ -602,7 +638,7 @@ def priority_search(query, relevant_codes, bedrock_embeddings):
 
     return docs
 
-def get_reference(docs, path, doc_prefix):
+def get_reference(docs):
     reference = "\n\nFrom\n"
     for i, doc in enumerate(docs):
         excerpt = doc['metadata']['excerpt'].replace('"','')
@@ -810,15 +846,12 @@ def retrieve_from_vectorstore(query, top_k, rag_type):
                     
     return relevant_codes
 
-def get_code_using_RAG(llm, text, conv_type, connectionId, requestId, bedrock_embeddings):
+def get_code_using_RAG(chat, text, conv_type, code_type, connectionId, requestId, bedrock_embedding):
     global time_for_rag, time_for_inference, time_for_priority_search, number_of_relevant_codes  # for debug
     time_for_rag = time_for_inference = time_for_priority_search = number_of_relevant_codes = 0
     
     reference = ""
     start_time_for_rag = time.time()
-
-    PROMPT = get_prompt_template(text, conv_type)
-    print('PROMPT: ', PROMPT)        
 
     relevant_codes = [] 
     print('start RAG for question')
@@ -833,7 +866,7 @@ def get_code_using_RAG(llm, text, conv_type, connectionId, requestId, bedrock_em
 
     selected_relevant_codes = []
     if len(relevant_codes)>=1:
-        selected_relevant_codes = priority_search(text, relevant_codes, bedrock_embeddings)
+        selected_relevant_codes = priority_search(text, relevant_codes, bedrock_embedding)
         print('selected_relevant_codes: ', json.dumps(selected_relevant_codes))
     
     end_time_for_priority_search = time.time() 
@@ -848,40 +881,140 @@ def get_code_using_RAG(llm, text, conv_type, connectionId, requestId, bedrock_em
             relevant_code = relevant_code + code + "\n\n"            
     print('relevant_code: ', relevant_code)
 
-    try: 
-        isTyping(connectionId, requestId)
-        stream = llm(PROMPT.format(context=relevant_code, question=text))
-        msg = readStreamMsg(connectionId, requestId, stream)                    
-    except Exception:
-        err_msg = traceback.format_exc()
-        print('error message: ', err_msg)       
-        sendErrorMessage(connectionId, requestId, err_msg)    
-        raise Exception ("Not able to request to LLM")    
+    msg = generate_code(connectionId, requestId, chat, text, relevant_code, code_type)
 
     if len(selected_relevant_codes)>=1 and enableReference=='true':
-        reference = get_reference(selected_relevant_codes, path, doc_prefix)  
+        reference = get_reference(selected_relevant_codes)  
 
     end_time_for_inference = time.time()
     time_for_inference = end_time_for_inference - end_time_for_priority_search
     print('processing time for inference: ', time_for_inference)
     
+    global relevant_length, token_counter_relevant_docs    
+    if debugMessageMode=='true':   # extract chat history for debug
+        relevant_length = len(relevant_code)
+        token_counter_relevant_docs = chat.get_num_tokens(relevant_code)
+    
+    memory_chain.chat_memory.add_user_message(text)  # append new diaglog
+    memory_chain.chat_memory.add_ai_message(msg)
+    
     return msg, reference
 
-def get_answer_using_ConversationChain(text, conversation, conv_type, connectionId, requestId):
-    conversation.prompt = get_prompt_template(text, conv_type)
+def get_summary(chat, docs):    
+    text = ""
+    for doc in docs:
+        text = text + doc
+    
+    if isKorean(text)==True:
+        system = (
+            "다음의 <article> tag안의 문장을 요약해서 500자 이내로 설명하세오."
+        )
+    else: 
+        system = (
+            "Here is pieces of article, contained in <article> tags. Write a concise summary within 500 characters."
+        )
+    
+    human = "<article>{text}</article>"
+    
+    prompt = ChatPromptTemplate.from_messages([("system", system), ("human", human)])
+    print('prompt: ', prompt)
+    
+    chain = prompt | chat    
     try: 
-        isTyping(connectionId, requestId)    
-        stream = conversation.predict(input=text)
-        #print('stream: ', stream)                    
-        msg = readStreamMsg(connectionId, requestId, stream)        
+        result = chain.invoke(
+            {
+                "text": text
+            }
+        )
+        
+        summary = result.content
+        print('result of summarization: ', summary)
     except Exception:
         err_msg = traceback.format_exc()
-        print('error message: ', err_msg)        
-        
-        sendErrorMessage(connectionId, requestId, err_msg)    
+        print('error message: ', err_msg)                    
         raise Exception ("Not able to request to LLM")
+    
+    return summary
 
-    return msg
+def generate_code(connectionId, requestId, chat, text, context, mode):
+    if mode == 'py':    
+        system = (
+            """다음의 <context> tag안에는 질문과 관련된 python code가 있습니다. 주어진 예제를 참조하여 질문과 관련된 python 코드를 생성합니다. Assistant의 이름은 서연입니다. 
+            
+            <context>
+            {context}
+            </context>"""
+        )
+    elif mode == 'js':
+        system = (
+            """다음의 <context> tag안에는 질문과 관련된 node.js code가 있습니다. 주어진 예제를 참조하여 질문과 관련된 node.js 코드를 생성합니다. Assistant의 이름은 서연입니다. 
+            
+            <context>
+            {context}
+            </context>"""
+        )
+    
+    human = "<context>{text}</context>"
+    
+    prompt = ChatPromptTemplate.from_messages([("system", system), ("human", human)])
+    print('prompt: ', prompt)
+    
+    chain = prompt | chat    
+    try: 
+        isTyping(connectionId, requestId)  
+        stream = chain.invoke(
+            {
+                "context": context,
+                "text": text
+            }
+        )
+        
+        geenerated_code = readStreamMsg(connectionId, requestId, stream.content)
+                              
+        geenerated_code = stream.content        
+        print('result of code generation: ', geenerated_code)
+    except Exception:
+        err_msg = traceback.format_exc()
+        print('error message: ', err_msg)                    
+        raise Exception ("Not able to request to LLM")
+    
+    return geenerated_code
+
+def summary_of_code(chat, code, mode):
+    if mode == 'py':
+        system = (
+            "다음의 <article> tag에는 python code가 있습니다. code의 전반적인 목적에 대해 설명하고, 각 함수의 기능과 역할을 자세하게 한국어 500자 이내로 설명하세요."
+        )
+    elif mode == 'js':
+        system = (
+            "다음의 <article> tag에는 node.js code가 있습니다. code의 전반적인 목적에 대해 설명하고, 각 함수의 기능과 역할을 자세하게 한국어 500자 이내로 설명하세요."
+        )
+    else:
+        system = (
+            "다음의 <article> tag에는 code가 있습니다. code의 전반적인 목적에 대해 설명하고, 각 함수의 기능과 역할을 자세하게 한국어 500자 이내로 설명하세요."
+        )
+    
+    human = "<article>{code}</article>"
+    
+    prompt = ChatPromptTemplate.from_messages([("system", system), ("human", human)])
+    print('prompt: ', prompt)
+    
+    chain = prompt | chat    
+    try: 
+        result = chain.invoke(
+            {
+                "code": code
+            }
+        )
+        
+        summary = result.content
+        print('result of code summarization: ', summary)
+    except Exception:
+        err_msg = traceback.format_exc()
+        print('error message: ', err_msg)                    
+        raise Exception ("Not able to request to LLM")
+    
+    return summary
 
 def getResponse(connectionId, jsonBody):
     userId  = jsonBody['user_id']
@@ -896,9 +1029,11 @@ def getResponse(connectionId, jsonBody):
     # print('body: ', body)
     conv_type = jsonBody['conv_type']  # conversation type
     print('Conversation Type: ', conv_type)
-
+    code_type = jsonBody['code_type']  # code type
+    print('code Type: ', code_type)
+    
     global vectorstore_opensearch, enableReference
-    global map_chain, map_chat, memory_chat, isReady, selected_LLM
+    global map_chain, memory_chain, isReady, selected_LLM
 
     # Multi-LLM
     profile = profile_of_LLMs[selected_LLM]
@@ -921,33 +1056,20 @@ def getResponse(connectionId, jsonBody):
     print('parameters: ', parameters)
 
     # langchain for bedrock
-    llm = Bedrock(
-        model_id=modelId, 
-        client=boto3_bedrock, 
-        streaming=True,
-        callbacks=[StreamingStdOutCallbackHandler()],
-        model_kwargs=parameters)
-
-    # embedding for RAG
-    bedrock_embeddings = BedrockEmbeddings(
-        client=boto3_bedrock,
-        region_name = bedrock_region,
-        model_id = 'amazon.titan-embed-text-v1' 
-    )    
+    chat = get_chat(profile_of_LLMs, selected_LLM)    
+    bedrock_embedding = get_embedding(profile_of_LLMs, selected_LLM)
 
     # create memory
-    if userId in map_chat or userId in map_chain:  
+    if userId in map_chain:  
         print('memory exist. reuse it!')        
-        memory_chat = map_chat[userId]
-        conversation = ConversationChain(llm=llm, verbose=False, memory=memory_chat)        
+        memory_chain = memory_chain[userId]
     else: 
         print('memory does not exist. create new one!')        
-        memory_chat = ConversationBufferWindowMemory(human_prefix='Human', ai_prefix='Assistant', k=MSG_HISTORY_LENGTH)
-        map_chat[userId] = memory_chat
+        memory_chain = ConversationBufferWindowMemory(memory_key="chat_history", output_key='answer', return_messages=True, k=10)
+        map_chain[userId] = memory_chain
 
         allowTime = getAllowTime()
         load_chat_history(userId, allowTime, conv_type)
-        conversation = ConversationChain(llm=llm, verbose=False, memory=memory_chat)
 
     # rag sources
     if conv_type == 'qa':
@@ -956,7 +1078,7 @@ def getResponse(connectionId, jsonBody):
             is_aoss = False,
             ef_search = 1024, # 512(default)
             m=48,
-            embedding_function = bedrock_embeddings,
+            embedding_function = bedrock_embedding,
             opensearch_url=opensearch_url,
             http_auth=(opensearch_account, opensearch_passwd), # http_auth=awsauth,
         )
@@ -999,18 +1121,23 @@ def getResponse(connectionId, jsonBody):
                 enableReference = 'false'
                 msg  = "Reference is disabled"            
             elif text == 'clearMemory':
-                memory_chat.clear()                
-                map_chat[userId] = memory_chat
-                conversation = ConversationChain(llm=llm, verbose=False, memory=memory_chat)
+                memory_chain.clear()
+                map_chain[userId] = memory_chain
                     
                 print('initiate the chat memory!')
                 msg  = "The chat memory was intialized in this session."
-            else:          
-                if conv_type == 'qa':   # RAG
-                    msg, reference = get_code_using_RAG(llm, text, conv_type, connectionId, requestId, bedrock_embeddings)     
+            else:        
+                if conv_type == 'normal':      # normal
+                    msg = general_conversation(connectionId, requestId, chat, text)    
+
+                elif conv_type == 'qa':   # RAG
+                    msg, reference = get_code_using_RAG(chat, text, conv_type, code_type, connectionId, requestId, bedrock_embedding)     
                 
-                elif conv_type == 'normal':      # normal
-                    msg = get_answer_using_ConversationChain(text, conversation, conv_type, connectionId, requestId)
+                # token counter
+                if debugMessageMode=='true':
+                    token_counter_input = chat.get_num_tokens(text)
+                    token_counter_output = chat.get_num_tokens(msg)
+                    print(f"token_counter: question: {token_counter_input}, answer: {token_counter_output}")
                 
         elif type == 'document':
             isTyping(connectionId, requestId)
@@ -1026,7 +1153,7 @@ def getResponse(connectionId, jsonBody):
                 msg = ""
                                 
                 if enableParallelSummay=='true':
-                    docs = summarize_relevant_codes_using_parallel_processing(codes, object)
+                    docs = summarize_relevant_codes_using_parallel_processing(codes, object, file_type)
                     
                 else:
                     for code in codes:
@@ -1038,7 +1165,7 @@ def getResponse(connectionId, jsonBody):
                             function_name = code[start+1:end]
                             # print('function_name: ', function_name)
                                             
-                            summary = summary_of_code(llm, code)                        
+                            summary = summary_of_code(chat, code, file_type)                        
                                 
                             if summary[:len(function_name)]==function_name:
                                 summary = summary[summary.find('\n')+1:len(summary)]
@@ -1085,9 +1212,9 @@ def getResponse(connectionId, jsonBody):
                     print('documentId: ', documentId)
                     
                     if enableNoriPlugin == 'true':
-                        store_document_for_opensearch_with_nori(bedrock_embeddings, docs, documentId)
+                        store_document_for_opensearch_with_nori(bedrock_embedding, docs, documentId)
                     else:
-                        store_document_for_opensearch(bedrock_embeddings, docs, documentId)
+                        store_document_for_opensearch(bedrock_embedding, docs, documentId)
 
                 print('processing time: ', str(time.time() - start_time))
         

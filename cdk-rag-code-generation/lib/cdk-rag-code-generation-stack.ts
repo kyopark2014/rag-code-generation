@@ -26,10 +26,26 @@ const opensearch_account = "admin";
 const opensearch_passwd = "Wifi1234!";
 const enableReference = 'true';
 let opensearch_url = "";
+const debugMessageMode = 'true';
 const numberOfRelevantDocs = '4';
 const allowDualSearching='true'
 const enableNoriPlugin = 'true';
 const enableParallelSummay = 'true';
+
+const claude3_sonnet = [
+  {
+    "bedrock_region": "us-west-2", // Oregon
+    "model_type": "claude3",
+    "model_id": "anthropic.claude-3-sonnet-20240229-v1:0",   
+    "maxOutputTokens": "8196"
+  },
+  {
+    "bedrock_region": "us-east-1", // N.Virginia
+    "model_type": "claude3",
+    "model_id": "anthropic.claude-3-sonnet-20240229-v1:0",
+    "maxOutputTokens": "8196"
+  }
+];
 
 const claude_instance = JSON.stringify([
   {
@@ -58,7 +74,7 @@ const claude_instance = JSON.stringify([
     },
 ]);
 
-const claude_basic = JSON.stringify([
+const claude2 = JSON.stringify([
   {
     "bedrock_region": "us-west-2", // Oregon
     "model_type": "claude",
@@ -73,7 +89,7 @@ const claude_basic = JSON.stringify([
   }
 ]);
 
-const profile_of_LLMs = claude_instance;
+const profile_of_LLMs = claude3_sonnet;
 
 export class CdkRagCodeGenerationStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -503,11 +519,12 @@ export class CdkRagCodeGenerationStack extends cdk.Stack {
         enableReference: enableReference,
         opensearch_account: opensearch_account,
         opensearch_passwd: opensearch_passwd,
+        debugMessageMode: debugMessageMode,
         opensearch_url: opensearch_url,
         path: 'https://'+distribution.domainName+'/',   
         roleArn: roleLambdaWebsocket.roleArn,
         numberOfRelevantDocs: numberOfRelevantDocs,
-        profile_of_LLMs:profile_of_LLMs,
+        profile_of_LLMs: JSON.stringify(profile_of_LLMs),
         allowDualSearching: allowDualSearching,
         enableNoriPlugin: enableNoriPlugin,
         enableParallelSummay: enableParallelSummay
