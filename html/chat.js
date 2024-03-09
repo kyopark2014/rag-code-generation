@@ -294,6 +294,7 @@ function onSend(e) {
         let requestId = uuidv4();
         addSentMessage(requestId, timestr, message.value);
         
+        console.log('conversationType:', conversationType);
         let code_type = ""
         if(conversationType=='qa-python') {
             conv_type = 'qa'
