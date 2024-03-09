@@ -140,7 +140,7 @@ def summarize_process_for_relevent_code(conn, chat, code, object, file_type, bed
     conn.close()
 ```
 
-코드를 요약하기 위해 Prompt를 활용합니다. 요약한 결과만을 추출하기 위하여 <result> tag를 활용하였고, 불필요한 줄바꿈은 아래와 같이 삭제하였습니다. 
+코드를 요약하기 위해 Prompt를 활용합니다.
 
 ```python
 def summary_of_code(chat, code, mode):
