@@ -300,7 +300,7 @@ function onSend(e) {
             conv_type = 'qa'
             code_type = 'py'
         }
-        if(conversationType=='qa-nodejs') {
+        else if(conversationType=='qa-nodejs') {
             conv_type = 'qa'
             code_type = 'js'
         }
