@@ -422,16 +422,16 @@ def load_code(file_type, s3_file_name):
     
     if file_type == 'py':        
         contents = doc.get()['Body'].read().decode('utf-8')
+        separators = ["\ndef "]
         # print('contents: ', contents)
+    elif file_type == 'js':
+        contents = doc.get()['Body'].read().decode('utf-8')
+        separators = ["\nfunction ", "\nexports.handler "]
     
-    #new_contents = str(contents).replace("\n"," ") 
-    #print('length: ', len(new_contents))
-
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=50,
         chunk_overlap=0,
-        #separators=["def ", "\n\n", "\n", ".", " ", ""],
-        separators=["\ndef "],
+        separators=separators,
         length_function = len,
     ) 
 
