@@ -89,9 +89,7 @@ def get_parameter(model_type, maxOutputTokens):
             "stop_sequences": [HUMAN_PROMPT]            
         }
 
-map_chain = dict() # For RAG
-map_chat = dict() # For general conversation  
-
+map_chain = dict() 
 
 # Multi-LLM
 def get_chat(profile_of_LLMs, selected_LLM):
@@ -1062,7 +1060,7 @@ def getResponse(connectionId, jsonBody):
     # create memory
     if userId in map_chain:  
         print('memory exist. reuse it!')        
-        memory_chain = memory_chain[userId]
+        memory_chain = map_chain[userId]
     else: 
         print('memory does not exist. create new one!')        
         memory_chain = ConversationBufferWindowMemory(memory_key="chat_history", output_key='answer', return_messages=True, k=10)
