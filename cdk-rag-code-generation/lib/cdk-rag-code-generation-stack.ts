@@ -29,7 +29,7 @@ let opensearch_url = "";
 const debugMessageMode = 'true';
 const numberOfRelevantDocs = '4';
 const allowDualSearching='true'
-const enableNoriPlugin = 'false';
+const enableNoriPlugin = 'true';
 const enableParallelSummay = 'true';
 
 const claude3_sonnet = [
