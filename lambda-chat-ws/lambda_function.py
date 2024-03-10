@@ -695,7 +695,7 @@ def checkDupulication(relevant_codes, doc_info):
             return True
     return False
 
-def retrieve_from_vectorstore(query, top_k, rag_type):
+def retrieve_from_vectorstore(vectorstore_opensearch, query, top_k, rag_type):
     print(f"query: {query} ({rag_type})")
     relevant_codes = []
         
@@ -873,6 +873,20 @@ def get_code_using_RAG(chat, text, conv_type, code_type, connectionId, requestId
     global time_for_rag, time_for_inference, time_for_priority_search, number_of_relevant_codes  # for debug
     time_for_rag = time_for_inference = time_for_priority_search = number_of_relevant_codes = 0
     
+    category = code_type
+    index_name =  f"idx-{category}-*"
+    print('index: ', index_name)
+        
+    vectorstore_opensearch = OpenSearchVectorSearch(
+        index_name = index_name,
+        is_aoss = False,
+        ef_search = 1024, # 512(default)
+        m=48,
+        embedding_function = bedrock_embedding,
+        opensearch_url=opensearch_url,
+        http_auth=(opensearch_account, opensearch_passwd), # http_auth=awsauth,
+    )
+        
     reference = ""
     start_time_for_rag = time.time()
 
@@ -880,7 +894,7 @@ def get_code_using_RAG(chat, text, conv_type, code_type, connectionId, requestId
     print('start RAG for question')
 
     rag_type = 'opensearch'
-    relevant_codes = retrieve_from_vectorstore(query=text, top_k=top_k, rag_type=rag_type)
+    relevant_codes = retrieve_from_vectorstore(vectorstore_opensearch=vectorstore_opensearch, query=text, top_k=top_k, rag_type=rag_type)
     print(f'relevant_codes ({rag_type}): '+json.dumps(relevant_codes))
     
     end_time_for_rag = time.time()
@@ -1059,8 +1073,7 @@ def getResponse(connectionId, jsonBody):
     file_type = object[object.rfind('.')+1:len(object)]
     print('file_type: ', file_type)
     
-    global vectorstore_opensearch, enableReference
-    global map_chain, memory_chain, isReady, selected_LLM
+    global map_chain, memory_chain, isReady, selected_LLM, enableReference
 
     # Multi-LLM
     profile = profile_of_LLMs[selected_LLM]
@@ -1068,19 +1081,6 @@ def getResponse(connectionId, jsonBody):
     modelId = profile['model_id']
     print(f'selected_LLM: {selected_LLM}, bedrock_region: {bedrock_region}, modelId: {modelId}')
     # print('profile: ', profile)
-    
-    # bedrock   
-    boto3_bedrock = boto3.client(
-        service_name='bedrock-runtime',
-        region_name=bedrock_region,
-        config=Config(
-            retries = {
-                'max_attempts': 30
-            }            
-        )
-    )
-    parameters = get_parameter(profile['model_type'], int(profile['maxOutputTokens']))
-    print('parameters: ', parameters)
 
     # langchain for bedrock
     chat = get_chat(profile_of_LLMs, selected_LLM)    
@@ -1097,18 +1097,6 @@ def getResponse(connectionId, jsonBody):
 
         allowTime = getAllowTime()
         load_chat_history(userId, allowTime, conv_type)
-
-    # rag sources
-    if conv_type == 'qa':
-        vectorstore_opensearch = OpenSearchVectorSearch(
-            index_name = "idx-*", # all
-            is_aoss = False,
-            ef_search = 1024, # 512(default)
-            m=48,
-            embedding_function = bedrock_embedding,
-            opensearch_url=opensearch_url,
-            http_auth=(opensearch_account, opensearch_passwd), # http_auth=awsauth,
-        )
 
     start = int(time.time())    
 
