@@ -82,7 +82,7 @@ def get_parameter(model_type, maxOutputTokens):
         }
     elif model_type=='claude':
         return {
-            "max_tokens_to_sample":maxOutputTokens, # 8k    
+            "max_tokens":maxOutputTokens, # 8k    
             "temperature":0.1,
             "top_k":250,
             "top_p":0.9,
