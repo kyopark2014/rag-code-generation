@@ -72,22 +72,6 @@ print('connection_url: ', connection_url)
 
 HUMAN_PROMPT = "\n\nHuman:"
 AI_PROMPT = "\n\nAssistant:"
-def get_parameter(model_type, maxOutputTokens):
-    if model_type=='titan': 
-        return {
-            "maxTokenCount":1024,
-            "stopSequences":[],
-            "temperature":0,
-            "topP":0.9
-        }
-    elif model_type=='claude':
-        return {
-            "max_tokens":maxOutputTokens, # 8k    
-            "temperature":0.1,
-            "top_k":250,
-            "top_p":0.9,
-            "stop_sequences": [HUMAN_PROMPT]            
-        }
 
 map_chain = dict() 
 
