@@ -976,7 +976,7 @@ def get_summary(chat, docs):
 def generate_code(connectionId, requestId, chat, text, context, mode):
     if mode == 'py':    
         system = (
-            """다음의 <context> tag안에는 질문과 관련된 python code가 있습니다. 주어진 예제를 참조하여 질문과 관련된 python 코드를 생성합니다. Assistant의 이름은 서연입니다. 
+            """다음의 <context> tag안에는 질문과 관련된 python code가 있습니다. 이 코드를 참조하여 질문과 관련된 python 코드를 생성합니다. 
             
             <context>
             {context}
@@ -984,14 +984,14 @@ def generate_code(connectionId, requestId, chat, text, context, mode):
         )
     elif mode == 'js':
         system = (
-            """다음의 <context> tag안에는 질문과 관련된 node.js code가 있습니다. 주어진 예제를 참조하여 질문과 관련된 node.js 코드를 생성합니다. Assistant의 이름은 서연입니다. 
+            """다음의 <context> tag안에는 질문과 관련된 node.js code가 있습니다. 이 코드를 참조하여 질문과 관련된 node.js 코드를 생성합니다. 
             
             <context>
             {context}
             </context>"""
         )
     
-    human = "<context>{text}</context>"
+    human = "{text}"
     
     prompt = ChatPromptTemplate.from_messages([("system", system), ("human", human)])
     print('prompt: ', prompt)
