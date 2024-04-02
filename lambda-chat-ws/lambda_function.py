@@ -1178,15 +1178,7 @@ def getResponse(connectionId, jsonBody):
         elif type == 'document':
             isTyping(connectionId, requestId)
             
-            documentId = category + "-" + key
-            documentId = documentId.replace(' ', '_') # remove spaces
-            documentId = documentId.replace(',', '_') # remove commas # not allowed: [ " * \\ < | , > / ? ]
-            documentId = documentId.replace('/', '_') # remove slash
-            documentId = documentId.lower() # change to lowercase
-            print('documentId: ', documentId)
-            
-            ids = []
-            
+            ids = []            
             if file_type == 'py' or file_type == 'js':
                 codes = load_code(file_type, object)  # number of functions in the code
                 print('code: ', codes)
@@ -1262,6 +1254,13 @@ def getResponse(connectionId, jsonBody):
 
                 print('processing time: ', str(time.time() - start_time))
                 
+                documentId = category + "-" + key
+                documentId = documentId.replace(' ', '_') # remove spaces
+                documentId = documentId.replace(',', '_') # remove commas # not allowed: [ " * \\ < | , > / ? ]
+                documentId = documentId.replace('/', '_') # remove slash
+                documentId = documentId.lower() # change to lowercase
+                print('documentId: ', documentId)
+            
             create_metadata(bucket=s3_bucket, key=key, meta_prefix=meta_prefix, s3_prefix=s3_prefix, uri=path+parse.quote(key), category=category, documentId=documentId, ids=ids)
         
         msg = msg.replace(" ","&nbsp;")                  
