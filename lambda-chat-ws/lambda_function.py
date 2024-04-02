@@ -1252,14 +1252,13 @@ def getResponse(connectionId, jsonBody):
                 # msg = "uploaded file: "+object
                 msg = f"{file_type} is not supported"
                                 
-            if conv_type == 'qa' or file_type == 'js':
+            if conv_type == 'qa':
                 start_time = time.time()
                 
-                if file_type == 'py':
-                    category = file_type
-                    key = doc_prefix+object
+                category = file_type
+                key = doc_prefix+object
                     
-                    ids = store_document_for_opensearch(bedrock_embedding, docs, key, category)
+                ids = store_document_for_opensearch(bedrock_embedding, docs, key, category)
 
                 print('processing time: ', str(time.time() - start_time))
                 
