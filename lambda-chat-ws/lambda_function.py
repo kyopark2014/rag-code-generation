@@ -261,85 +261,16 @@ def store_document_for_faiss(docs, vectorstore_faiss):
     print('store document into faiss')    
     vectorstore_faiss.add_documents(docs)       
     print('uploaded into faiss')
-
-def delete_index_if_exist(index_name):
-    if os_client.indices.exists(index_name):
-        print('remove index: ', index_name)
-        response = os_client.indices.delete(
-            index=index_name
-        )
-        print('response(remove): ', response)    
+    
+def is_not_exist(index_name):    
+    if os_client.indices.exists(index_name):        
+        print('use exist index: ', index_name)    
+        return False
     else:
         print('no index: ', index_name)
+        return True    
 
-def get_index_name(documentId):
-    index_name = "idx-"+documentId
-    print('index_name: ', index_name)
-                        
-    print('index_name: ', index_name)
-    print('length of index_name: ', len(index_name))
-                            
-    if len(index_name)>=100: # reduce index size
-        index_name = 'idx-'+index_name[len(index_name)-100:]
-        print('modified index_name: ', index_name)
-    
-    return index_name
-
-def delete_document_if_exist(vectorstore, metadata_key):
-    try: 
-        s3r = boto3.resource("s3")
-        bucket = s3r.Bucket(s3_bucket)
-        objs = list(bucket.objects.filter(Prefix=metadata_key))
-        print('objs: ', objs)
-        
-        if(len(objs)>0):
-            doc = s3r.Object(s3_bucket, metadata_key)
-            meta = doc.get()['Body'].read().decode('utf-8')
-            print('meta: ', meta)
-            
-            ids = json.loads(meta)['ids']
-            print('ids: ', ids)
-            
-            result = vectorstore.delete(ids)
-            print('result: ', result)        
-        else:
-            print('no meta file: ', metadata_key)
-            
-    except Exception:
-        err_msg = traceback.format_exc()
-        print('error message: ', err_msg)        
-        raise Exception ("Not able to create meta file")
-    
-def store_document_for_opensearch(bedrock_embedding, docs, key, category):
-    index_name = 'idx-rag-'+category
-    vectorstore = OpenSearchVectorSearch(
-        index_name=index_name,  
-        is_aoss = False,
-        #engine="faiss",  # default: nmslib
-        embedding_function = bedrock_embedding,
-        opensearch_url = opensearch_url,
-        http_auth=(opensearch_account, opensearch_passwd),
-    )
-    
-    objectName = (key[key.find(s3_prefix)+len(s3_prefix)+1:len(key)])
-    print('objectName: ', objectName)    
-    metadata_key = meta_prefix+objectName+'.metadata.json'
-    print('meta file name: ', metadata_key)    
-    delete_document_if_exist(vectorstore, metadata_key)
-    
-    try:        
-        response = vectorstore.add_documents(docs, bulk_size = 2000)
-        print('response of adding documents: ', response)
-    except Exception:
-        err_msg = traceback.format_exc()
-        print('error message: ', err_msg)                
-        #raise Exception ("Not able to request to LLM")
-
-    print('uploaded into opensearch')
-    
-    return response
-
-def store_document_for_opensearch_with_nori(bedrock_embedding, docs, key, category):
+def create_nori_index(category):
     index_body = {
         'settings': {
             'analysis': {
@@ -379,37 +310,71 @@ def store_document_for_opensearch_with_nori(bedrock_embedding, docs, key, catego
             'properties': {
                 'metadata': {
                     'properties': {
-                        'source': {'type': 'text'},
-                        'title' : {'type': 'text'},
-                        'excerpt': {'type': 'text'},
-                        'code': {'type': 'text'},
-                        'function_name': {'type': 'text'}
+                        'source' : {'type': 'keyword'},                    
+                        'last_updated': {'type': 'date'},
+                        'project': {'type': 'keyword'},
+                        'seq_num': {'type': 'long'},
+                        'title': {'type': 'text'},  # For full-text search
+                        'url': {'type': 'text'},  # For full-text search
                     }
                 },            
                 'text': {
+                    'analyzer': 'my_analyzer',
+                    'search_analyzer': 'my_analyzer',
                     'type': 'text'
                 },
                 'vector_field': {
                     'type': 'knn_vector',
-                    'dimension': 1536  # titan embedding
+                    'dimension': 1536  # Replace with your vector dimension
                 }
             }
         }
     }
     
-    """    
-    try: # create index
-        response = os_client.indices.create(
-            index_name,
-            body=index_body
-        )
-        print('index was created with nori plugin:', response)
+    index_name = 'idx-rag-'+category
+    
+    if(is_not_exist(index_name)):
+        try: # create index
+            response = os_client.indices.create(
+                index_name,
+                body=index_body
+            )
+            print('index was created with nori plugin:', response)
+        except Exception:
+            err_msg = traceback.format_exc()
+            print('error message: ', err_msg)                
+            #raise Exception ("Not able to create the index")
+            
+def delete_document_if_exist(vectorstore, metadata_key):
+    try: 
+        s3r = boto3.resource("s3")
+        bucket = s3r.Bucket(s3_bucket)
+        objs = list(bucket.objects.filter(Prefix=metadata_key))
+        print('objs: ', objs)
+        
+        if(len(objs)>0):
+            doc = s3r.Object(s3_bucket, metadata_key)
+            meta = doc.get()['Body'].read().decode('utf-8')
+            print('meta: ', meta)
+            
+            ids = json.loads(meta)['ids']
+            print('ids: ', ids)
+            
+            result = vectorstore.delete(ids)
+            print('result: ', result)        
+        else:
+            print('no meta file: ', metadata_key)
+            
     except Exception:
         err_msg = traceback.format_exc()
-        print('error message: ', err_msg)                
-        #raise Exception ("Not able to create the index")
-    """
-    
+        print('error message: ', err_msg)        
+        raise Exception ("Not able to create meta file")
+
+if enableNoriPlugin == 'true':
+    create_nori_index(category='py')
+    create_nori_index(category='js')    
+        
+def store_document_for_opensearch(bedrock_embedding, docs, key, category):
     index_name = 'idx-rag-'+category
     vectorstore = OpenSearchVectorSearch(
         index_name=index_name,  
@@ -425,8 +390,8 @@ def store_document_for_opensearch_with_nori(bedrock_embedding, docs, key, catego
     metadata_key = meta_prefix+objectName+'.metadata.json'
     print('meta file name: ', metadata_key)    
     delete_document_if_exist(vectorstore, metadata_key)
-
-    try: # put the doucment
+    
+    try:        
         response = vectorstore.add_documents(docs, bulk_size = 2000)
         print('response of adding documents: ', response)
     except Exception:
@@ -434,7 +399,7 @@ def store_document_for_opensearch_with_nori(bedrock_embedding, docs, key, catego
         print('error message: ', err_msg)                
         #raise Exception ("Not able to request to LLM")
 
-    print('uploaded into opensearch')    
+    print('uploaded into opensearch')
     
     return response
     
@@ -1294,10 +1259,7 @@ def getResponse(connectionId, jsonBody):
                     category = file_type
                     key = doc_prefix+object
                     
-                    if enableNoriPlugin == 'true':
-                        ids = store_document_for_opensearch_with_nori(bedrock_embedding, docs, key, category)
-                    else:
-                        ids = store_document_for_opensearch(bedrock_embedding, docs, key, category)
+                    ids = store_document_for_opensearch(bedrock_embedding, docs, key, category)
 
                 print('processing time: ', str(time.time() - start_time))
                 
