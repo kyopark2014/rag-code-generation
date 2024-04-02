@@ -182,25 +182,14 @@ def summary_of_code(chat, code, mode):
 
 ### 코드 요약을 OpenSearch에 등록
 
-RAG의 Knowledge Store로 OpenSearch를 이용합니다. [2023년 10월에 한국어, 일본어, 중국어에 대한 새로운 언어 분석기 플러그인이 OpenSearch에 추가](https://aws.amazon.com/ko/about-aws/whats-new/2023/10/amazon-opensearch-four-language-analyzers/) 되었으므로, 본 게시글에서는 [Nori 분석기를 이용하여 Lexical 검색](https://github.com/aws-samples/aws-ai-ml-workshop-kr/blob/master/genai/aws-gen-ai-kr/20_applications/02_qa_chatbot/01_preprocess_docs/01_2_load_json_kr_docs_opensearch.ipynb)을 이용합니다. S3에 저장된 코드를 삭제하면 OpenSearch의 Document도 같이 삭제되어야 합니다. 따라서, 아래와 같이 documentId는 언어 타입에 대한 "py"와 파일명을 활용하여 생성하였습니다. 
+RAG의 Knowledge Store로 OpenSearch를 이용합니다. [2023년 10월에 한국어, 일본어, 중국어에 대한 새로운 언어 분석기 플러그인이 OpenSearch에 추가](https://aws.amazon.com/ko/about-aws/whats-new/2023/10/amazon-opensearch-four-language-analyzers/) 되었으므로, 본 게시글에서는 [Nori 분석기를 이용하여 Lexical 검색](https://github.com/aws-samples/aws-ai-ml-workshop-kr/blob/master/genai/aws-gen-ai-kr/20_applications/02_qa_chatbot/01_preprocess_docs/01_2_load_json_kr_docs_opensearch.ipynb)을 이용합니다. S3에 저장된 코드를 삭제하면 OpenSearch의 Document도 같이 삭제합니다.
 
 ```python
-if file_type == 'py':
-    category = file_type
-    key = doc_prefix+object
-    documentId = category + "-" + key
-    documentId = documentId.replace(' ', '_') 
-    documentId = documentId.replace(',', '_') 
-    documentId = documentId.replace('/', '_') 
-    documentId = documentId.lower() 
+if enableNoriPlugin == 'true':
+    create_nori_index(category='py')
+    create_nori_index(category='js')    
 
-    store_document_for_opensearch_with_nori(bedrock_embeddings, docs, documentId)
-
-def store_document_for_opensearch_with_nori(bedrock_embeddings, docs, documentId):
-    index_name = get_index_name(documentId)
-    
-    delete_index_if_exist(index_name)
-    
+def create_nori_index(category):
     index_body = {
         'settings': {
             'analysis': {
@@ -233,7 +222,7 @@ def store_document_for_opensearch_with_nori(bedrock_embeddings, docs, documentId
             },
             'index': {
                 'knn': True,
-                'knn.space_type': 'cosinesimil' 
+                'knn.space_type': 'cosinesimil'  # Example space type
             }
         },
         'mappings': {
@@ -244,8 +233,8 @@ def store_document_for_opensearch_with_nori(bedrock_embeddings, docs, documentId
                         'last_updated': {'type': 'date'},
                         'project': {'type': 'keyword'},
                         'seq_num': {'type': 'long'},
-                        'title': {'type': 'text'},  
-                        'url': {'type': 'text'},  
+                        'title': {'type': 'text'},  # For full-text search
+                        'url': {'type': 'text'},  # For full-text search
                     }
                 },            
                 'text': {
@@ -261,28 +250,44 @@ def store_document_for_opensearch_with_nori(bedrock_embeddings, docs, documentId
         }
     }
     
-    try: # create index
-        response = os_client.indices.create(
-            index_name,
-            body=index_body
-        )
-    except Exception:
-        err_msg = traceback.format_exc()
-        print('error message: ', err_msg)                
+    index_name = 'idx-rag-'+category
+    
+    if(is_not_exist(index_name)):
+        try: # create index
+            response = os_client.indices.create(
+                index_name,
+                body=index_body
+            )
+            print('index was created with nori plugin:', response)
+        except Exception:
+            err_msg = traceback.format_exc()
+            print('error message: ', err_msg)                
 
-    try: # put the doucment
-        vectorstore = OpenSearchVectorSearch(
-            index_name=index_name,  
-            is_aoss = False,
-            embedding_function = bedrock_embeddings,
-            opensearch_url = opensearch_url,
-            http_auth=(opensearch_account, opensearch_passwd),
-        )
+def store_document_for_opensearch(bedrock_embedding, docs, key, category):
+    index_name = 'idx-rag-'+category
+    vectorstore = OpenSearchVectorSearch(
+        index_name=index_name,  
+        is_aoss = False,
+        #engine="faiss",  # default: nmslib
+        embedding_function = bedrock_embedding,
+        opensearch_url = opensearch_url,
+        http_auth=(opensearch_account, opensearch_passwd),
+    )
+    
+    objectName = (key[key.find(s3_prefix)+len(s3_prefix)+1:len(key)])
+    print('objectName: ', objectName)    
+    metadata_key = meta_prefix+objectName+'.metadata.json'
+    print('meta file name: ', metadata_key)    
+    delete_document_if_exist(vectorstore, metadata_key)
+    
+    try:        
         response = vectorstore.add_documents(docs, bulk_size = 2000)
+        print('response of adding documents: ', response)
     except Exception:
         err_msg = traceback.format_exc()
-        print('error message: ', err_msg)                
+        print('error message: ', err_msg)
 ```
+
 
 ### RAG의 Knowledge Store를 이용하여 관련 Code 검색
 
